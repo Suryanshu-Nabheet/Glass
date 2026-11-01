@@ -306,7 +306,6 @@ import {
   normalizeRuntimeModeForProvider,
   providerModelSupportsAutoRuntimeMode,
 } from "../lib/runtimeMode";
-import { QuantumLogo } from "./QuantumLogo";
 import { GLASS_EMPTY_HOME_HEADING, GLASS_EMPTY_PROJECT_HEADING_PREFIX } from "../productVoice";
 import { ThreadWorktreeHandoffDialog } from "./ThreadWorktreeHandoffDialog";
 import {
@@ -12099,7 +12098,6 @@ export default function ChatView({
                       CHAT_COLUMN_FRAME_CLASS_NAME,
                     )}
                   >
-                    <QuantumLogo aria-label="Glass logo" className="size-10" />
                     <h2
                       data-testid="empty-landing-heading"
                       className="text-[26px] font-normal leading-[1.15] tracking-[-0.015em] text-foreground/95 sm:text-[30px]"
