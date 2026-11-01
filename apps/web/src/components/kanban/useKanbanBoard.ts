@@ -12,7 +12,6 @@ import { toastManager } from "~/components/ui/toast";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { useKanbanUiStore } from "../../kanbanUiStore";
 import { isHomeChatContainerProject } from "../../lib/chatProjects";
-import { isStudioContainerProject } from "../../lib/studioProjects";
 import { useStore } from "../../store";
 import { createSidebarDisplayThreadsSelector } from "../../storeSelectors";
 import { useTerminalStateStore } from "../../terminalStateStore";
@@ -45,7 +44,6 @@ export function useKanbanBoard(): KanbanBoard {
   const threadsHydrated = useStore((state) => state.threadsHydrated);
   const homeDir = useWorkspacePathsStore((state) => state.homeDir);
   const chatWorkspaceRoot = useWorkspacePathsStore((state) => state.chatWorkspaceRoot);
-  const studioWorkspaceRoot = useWorkspacePathsStore((state) => state.studioWorkspaceRoot);
   const projectSortOrder = settings.sidebarProjectSortOrder;
 
   // Mirror the sidebar's grouping: projects in the user's sidebar sort order, then one
@@ -56,9 +54,7 @@ export function useKanbanBoard(): KanbanBoard {
     isHomeChatContainerProject(project, { homeDir, chatWorkspaceRoot }),
   );
   const otherProjects = allProjects.filter(
-    (project) =>
-      !isHomeChatContainerProject(project, { homeDir, chatWorkspaceRoot }) &&
-      !isStudioContainerProject(project, { homeDir, chatWorkspaceRoot, studioWorkspaceRoot }),
+    (project) => !isHomeChatContainerProject(project, { homeDir, chatWorkspaceRoot }),
   );
   const canonicalContainer =
     chatContainers.find((project) => project.kind === "chat") ?? chatContainers[0] ?? null;

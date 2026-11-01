@@ -126,7 +126,6 @@ import {
   ProviderCommandReactor,
   type ProviderCommandReactorShape,
 } from "../Services/ProviderCommandReactor.ts";
-import { StudioOutputReactor } from "../Services/StudioOutputReactor.ts";
 import {
   isClaimedProviderIntent,
   isProviderIntentEvent,
@@ -531,7 +530,6 @@ const make = Effect.gen(function* () {
   const providerService = yield* ProviderService;
   const pendingInteractions = yield* ProjectionPendingInteractionRepository;
   const checkpointStore = yield* CheckpointStore;
-  const studioOutputReactor = yield* StudioOutputReactor;
   const git = yield* GitCore;
   const gatewayOperations = yield* AgentGatewayOperationRepository;
   const textGeneration = yield* TextGeneration;
@@ -1789,30 +1787,16 @@ const make = Effect.gen(function* () {
       ),
     );
 
-    // Both Git and non-Git Studio baselines must finish before provider execution
-    // starts. Otherwise a fast command can write a file while the baseline scan is
-    // still running and make that output look unchanged at turn completion.
-    const capturePreTurnBaselines = Effect.all(
-      [
-        captureMessageStartCheckpoint,
-        studioOutputReactor.captureBaselineBeforeTurn(input.threadId),
-      ],
-      { concurrency: 2, discard: true },
-    );
-    const cancelPendingStudioBaseline = studioOutputReactor.cancelPendingTurnBaseline(
-      input.threadId,
-    );
+    const capturePreTurnBaselines = captureMessageStartCheckpoint;
     let pendingContextBootstrapAttempt: PendingContextBootstrapAttempt | undefined;
     let startedTurn: ProviderTurnStartResult | undefined;
 
     if (input.reviewTarget !== undefined) {
       yield* capturePreTurnBaselines;
-      startedTurn = yield* providerService
-        .startReview({
-          threadId: input.threadId,
-          target: input.reviewTarget,
-        })
-        .pipe(Effect.onError(() => cancelPendingStudioBaseline));
+      startedTurn = yield* providerService.startReview({
+        threadId: input.threadId,
+        target: input.reviewTarget,
+      });
     } else if (input.dispatchMode === "steer") {
       startedTurn = yield* providerService.steerTurn({
         ...providerTurnInput,
@@ -1939,7 +1923,6 @@ const make = Effect.gen(function* () {
                 pendingContextBootstrapAttempts.delete(input.threadId);
               }
             });
-            yield* cancelPendingStudioBaseline;
           }),
         ),
       );

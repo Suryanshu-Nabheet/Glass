@@ -495,7 +495,6 @@ describe("EventRouter scoped orchestration sync", () => {
     useWorkspacePathsStore.setState({
       homeDir: null,
       chatWorkspaceRoot: null,
-      studioWorkspaceRoot: null,
     });
     subscribeShellRequestCount = 0;
     subscribeThreadRequestCountById.clear();

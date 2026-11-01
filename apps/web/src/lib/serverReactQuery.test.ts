@@ -31,7 +31,6 @@ function makeServerConfig(providers: readonly ServerProviderStatus[]): ServerCon
     cwd: "G:\\glass",
     homeDir: "C:\\Users\\tester",
     chatWorkspaceRoot: "C:\\Users\\tester\\Documents\\Glass",
-    studioWorkspaceRoot: "C:\\Users\\tester\\Documents\\Glass\\Studio",
     worktreesDir: "C:\\GlassDev\\worktrees",
     keybindingsConfigPath: "C:\\GlassDev\\keybindings.json",
     keybindings: [],

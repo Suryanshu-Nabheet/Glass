@@ -385,65 +385,6 @@ describe("CheckpointDiffQueryLive", () => {
     ).rejects.toThrow("Workspace path missing");
   });
 
-  it("uses the workspace root as a real cwd for a studio-kind project", async () => {
-    const projectId = ProjectId.makeUnsafe("project-studio");
-    const threadId = ThreadId.makeUnsafe("thread-studio");
-    const toCheckpointRef = checkpointRefForThreadTurn(threadId, 1);
-    const diffCheckpointsCalls: Array<{ readonly cwd: string }> = [];
-
-    const threadCheckpointContext = makeThreadCheckpointContext({
-      projectId,
-      threadId,
-      projectKind: "studio",
-      workspaceRoot: "/tmp/studio-root",
-      envMode: "local",
-      worktreePath: null,
-      checkpointTurnCount: 1,
-      checkpointRef: toCheckpointRef,
-    });
-
-    const checkpointStore: CheckpointStoreShape = {
-      isGitRepository: () => Effect.succeed(true),
-      captureCheckpoint: () => Effect.void,
-      copyCheckpointRef: () => Effect.succeed(true),
-      hasCheckpointRef: () => Effect.succeed(true),
-      restoreCheckpoint: () => Effect.succeed(true),
-      reverseCheckpointDiff: () => Effect.succeed(true),
-      diffCheckpoints: ({ cwd }) =>
-        Effect.sync(() => {
-          diffCheckpointsCalls.push({ cwd });
-          return "diff patch";
-        }),
-      deleteCheckpointRefs: () => Effect.void,
-    };
-
-    const layer = CheckpointDiffQueryLive.pipe(
-      Layer.provideMerge(Layer.succeed(CheckpointStore, checkpointStore)),
-      Layer.provideMerge(
-        Layer.succeed(
-          ProjectionSnapshotQuery,
-          fakeProjectionSnapshotQuery({
-            getThreadCheckpointContext: () => Effect.succeed(Option.some(threadCheckpointContext)),
-          }),
-        ),
-      ),
-    );
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const query = yield* CheckpointDiffQuery;
-        return yield* query.getTurnDiff({
-          threadId,
-          fromTurnCount: 0,
-          toTurnCount: 1,
-        });
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(diffCheckpointsCalls).toEqual([{ cwd: "/tmp/studio-root" }]);
-    expect(result.diff).toBe("diff patch");
-  });
-
   it("fails cleanly when the selected checkpoint is still missing", async () => {
     const projectId = ProjectId.makeUnsafe("project-missing");
     const threadId = ThreadId.makeUnsafe("thread-missing-checkpoint");

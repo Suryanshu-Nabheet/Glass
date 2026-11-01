@@ -142,16 +142,16 @@ describe("ChatMarkdown", () => {
     // one run-on paragraph of pipes. The repair pass pads the delimiter row.
     const markup = await renderMarkdown(
       [
-        "Studio vs. normal mode:",
+        "Mode comparison:",
         "",
-        "| | Normal mode | Studio |",
+        "| | Normal mode | Focus mode |",
         "|---|---|",
         "| Purpose | Focused, interactive work | Long-running, agent-led work |",
       ].join("\n"),
     );
 
     expect(markup).toContain("<table>");
-    expect(markup).toContain("<th>Studio</th>");
+    expect(markup).toContain("<th>Focus mode</th>");
     expect(markup).toContain("<td>Purpose</td>");
     expect(markup).not.toContain("|---|");
   });

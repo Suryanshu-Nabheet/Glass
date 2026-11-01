@@ -86,10 +86,6 @@ import {
 } from "../Services/OrchestrationEngine.ts";
 import { OrchestrationCommandInvariantError, type OrchestrationDispatchError } from "../Errors.ts";
 import { ProviderCommandReactor } from "../Services/ProviderCommandReactor.ts";
-import {
-  StudioOutputReactor,
-  type StudioOutputReactorShape,
-} from "../Services/StudioOutputReactor.ts";
 import { attachmentRelativePath } from "../../attachmentStore.ts";
 import { resolveProviderAttachmentPath } from "../../provider/providerAttachmentPaths.ts";
 import { PROVIDER_DEBUG_MODE_PROMPT_PREFIX } from "../../provider/debugMode.ts";
@@ -203,7 +199,6 @@ describe("ProviderCommandReactor", () => {
     readonly sessionModelSwitch?: "unsupported" | "in-session" | "restart-session";
     readonly conversationRollback?: "native" | "restart-session";
     readonly checkpointStore?: Partial<CheckpointStoreShape>;
-    readonly studioOutputReactor?: Partial<StudioOutputReactorShape>;
     readonly forkThreadResult?: ProviderForkThreadResult | null;
     readonly startReactor?: boolean;
     readonly interruptTurn?: ProviderServiceShape["interruptTurn"];
@@ -445,19 +440,6 @@ describe("ProviderCommandReactor", () => {
         }),
       ),
     );
-    const captureStudioOutputBaseline = vi.fn<
-      StudioOutputReactorShape["captureBaselineBeforeTurn"]
-    >(input?.studioOutputReactor?.captureBaselineBeforeTurn ?? (() => Effect.void));
-    const cancelPendingStudioOutputBaseline = vi.fn<
-      StudioOutputReactorShape["cancelPendingTurnBaseline"]
-    >(input?.studioOutputReactor?.cancelPendingTurnBaseline ?? (() => Effect.void));
-    const studioOutputReactor: StudioOutputReactorShape = {
-      captureBaselineBeforeTurn: captureStudioOutputBaseline,
-      cancelPendingTurnBaseline: cancelPendingStudioOutputBaseline,
-      start: input?.studioOutputReactor?.start ?? Effect.void,
-      drain: input?.studioOutputReactor?.drain ?? Effect.void,
-    };
-
     const unsupported = () => Effect.die(new Error("Unsupported provider call in test")) as never;
     const service: ProviderServiceShape = {
       startSession: startSession as ProviderServiceShape["startSession"],
@@ -508,7 +490,6 @@ describe("ProviderCommandReactor", () => {
       Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
       Layer.provideMerge(TurnCheckpointCoordinatorLive),
       Layer.provideMerge(Layer.succeed(ProviderService, service)),
-      Layer.provideMerge(Layer.succeed(StudioOutputReactor, studioOutputReactor)),
       Layer.provideMerge(Layer.succeed(CheckpointStore, checkpointStore)),
       Layer.provideMerge(
         Layer.succeed(GitCore, {
@@ -646,8 +627,6 @@ describe("ProviderCommandReactor", () => {
       publishBranch,
       generateBranchName,
       generateThreadTitle,
-      captureStudioOutputBaseline,
-      cancelPendingStudioOutputBaseline,
       stateDir,
       stageAttachment: async (
         attachment: {
@@ -4579,45 +4558,6 @@ describe("ProviderCommandReactor", () => {
     expect(captureCheckpoint.mock.calls[0]?.[0].checkpointRef).toContain("/message-start/");
   });
 
-  it("waits for the Studio output baseline before sending the provider turn", async () => {
-    let releaseCapture: (() => void) | undefined;
-    const captureGate = new Promise<void>((resolve) => {
-      releaseCapture = resolve;
-    });
-    const captureBaselineBeforeTurn = vi.fn<StudioOutputReactorShape["captureBaselineBeforeTurn"]>(
-      () => Effect.promise(() => captureGate),
-    );
-    const harness = await createHarness({
-      studioOutputReactor: { captureBaselineBeforeTurn },
-    });
-    const now = new Date().toISOString();
-
-    await Effect.runPromise(
-      harness.engine.dispatch({
-        type: "thread.turn.start",
-        commandId: CommandId.makeUnsafe("cmd-turn-start-slow-studio-baseline"),
-        threadId: ThreadId.makeUnsafe("thread-1"),
-        message: {
-          messageId: asMessageId("user-message-slow-studio-baseline"),
-          role: "user",
-          text: "create an output immediately",
-          attachments: [],
-        },
-        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
-        runtimeMode: "approval-required",
-        createdAt: now,
-      }),
-    );
-
-    await waitFor(() => captureBaselineBeforeTurn.mock.calls.length === 1);
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    expect(harness.sendTurn).not.toHaveBeenCalled();
-
-    releaseCapture?.();
-    await waitFor(() => harness.sendTurn.mock.calls.length === 1);
-    expect(captureBaselineBeforeTurn).toHaveBeenCalledWith(ThreadId.makeUnsafe("thread-1"));
-  });
-
   it("publishes a starting session status before the provider session is ready", async () => {
     const harness = await createHarness();
     const now = new Date().toISOString();
@@ -4962,9 +4902,6 @@ describe("ProviderCommandReactor", () => {
     expect(
       thread?.activities.some((activity) => activity.kind === "provider.turn.start.failed"),
     ).toBe(true);
-    expect(harness.cancelPendingStudioOutputBaseline).toHaveBeenCalledWith(
-      ThreadId.makeUnsafe("thread-1"),
-    );
     await waitFor(async () => {
       const delivery = await Effect.runPromise(
         harness.deliveryRepository.firstBlockingDeliveryForThread({

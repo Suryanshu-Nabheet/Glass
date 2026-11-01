@@ -920,9 +920,7 @@ export function SingleChatSurface(props: {
       case "sidechat":
         if (!pane.threadId) {
           return (
-            <RightDockPaneUnavailable
-              message="This side chat has no linked thread. Close it and open a new side chat from a thread."
-            />
+            <RightDockPaneUnavailable message="This side chat has no linked thread. Close it and open a new side chat from a thread." />
           );
         }
         if (!threadSummaries.some((thread) => thread.id === pane.threadId)) {

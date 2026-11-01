@@ -4,7 +4,6 @@ import type {
   ServerListProviderUsageInput,
   ServerProviderStatus,
   ServerStopLocalServerInput,
-  ThreadId,
 } from "@glass/contracts";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { ensureNativeApi } from "~/nativeApi";
@@ -31,8 +30,6 @@ export const serverQueryKeys = {
     ["server", "profileStats", "peak-hour-v2", utcOffsetMinutes] as const,
   profileTokenStats: (utcOffsetMinutes: number) =>
     ["server", "profileTokenStats", utcOffsetMinutes] as const,
-  studioThreadOutputs: (threadId: ThreadId | null) =>
-    ["server", "studioThreadOutputs", threadId] as const,
 };
 
 export const serverMutationKeys = {
@@ -240,33 +237,6 @@ export function sidebarLocalServersQueryOptions(input: {
   return serverLocalServersQueryOptions({
     enabled,
     refetchInterval: input.hasActiveProjectRun ? LOCAL_SERVERS_VISIBLE_REFETCH_INTERVAL_MS : false,
-  });
-}
-
-const STUDIO_THREAD_OUTPUTS_STALE_TIME_MS = 10_000;
-
-/**
- * Outbox files attributed server-side to one Studio chat. Domain events invalidate this
- * query after checkpoint and non-Git file-change updates.
- */
-export function studioThreadOutputsQueryOptions(input: {
-  threadId: ThreadId | null;
-  enabled?: boolean;
-}) {
-  const threadId = input.threadId;
-  return queryOptions({
-    queryKey: serverQueryKeys.studioThreadOutputs(threadId),
-    queryFn: async () => {
-      const api = ensureNativeApi();
-      if (!threadId) {
-        return { entries: [] };
-      }
-      return api.studio.listThreadOutputs({ threadId });
-    },
-    enabled: (input.enabled ?? true) && threadId !== null,
-    staleTime: STUDIO_THREAD_OUTPUTS_STALE_TIME_MS,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
   });
 }
 

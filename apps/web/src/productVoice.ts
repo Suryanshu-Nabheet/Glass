@@ -37,11 +37,6 @@ export const GLASS_SURFACE_THREADS = {
   description: "Parallel agents across your repos",
 } as const;
 
-export const GLASS_SURFACE_STUDIO = {
-  title: "Studio",
-  description: "Open-ended agent work",
-} as const;
-
 export const GLASS_EMPTY_HOME_HEADING = "What should we work on?";
 
 export const GLASS_EMPTY_PROJECT_HEADING_PREFIX = "What should we do in";

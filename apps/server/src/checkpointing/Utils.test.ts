@@ -75,16 +75,6 @@ describe("resolveProjectCwdForKind", () => {
     ).toBe("/tmp/chat-root");
   });
 
-  it("treats a studio-kind project's workspace root as a real cwd", () => {
-    expect(
-      resolveProjectCwdForKind({
-        kind: "studio",
-        workspaceRoot: "/tmp/studio-root",
-        worktreePath: null,
-      }),
-    ).toBe("/tmp/studio-root");
-  });
-
   it("treats a project-kind project's workspace root as a real cwd", () => {
     expect(
       resolveProjectCwdForKind({
@@ -116,38 +106,6 @@ describe("resolveThreadWorkspaceCwd", () => {
         projects: [{ id: projectId, kind: "chat", workspaceRoot: "/tmp/chat-root" }],
       }),
     ).toBeUndefined();
-  });
-
-  it("resolves the workspace root for a studio-kind thread with no worktree", () => {
-    expect(
-      resolveThreadWorkspaceCwd({
-        thread: { projectId, envMode: "local", worktreePath: null },
-        projects: [{ id: projectId, kind: "studio", workspaceRoot: "/tmp/studio-root" }],
-      }),
-    ).toBe("/tmp/studio-root");
-  });
-
-  it("prefers an ordinary Studio working directory without treating it as a worktree", () => {
-    expect(
-      resolveThreadWorkspaceCwd({
-        thread: {
-          projectId,
-          envMode: "local",
-          worktreePath: null,
-          workingDirectory: "/tmp/reference-folder",
-        },
-        projects: [{ id: projectId, kind: "studio", workspaceRoot: "/tmp/studio-root" }],
-      }),
-    ).toBe("/tmp/reference-folder");
-  });
-
-  it("resolves the materialized worktree path for a studio-kind thread", () => {
-    expect(
-      resolveThreadWorkspaceCwd({
-        thread: { projectId, envMode: "worktree", worktreePath: "/tmp/studio-worktree" },
-        projects: [{ id: projectId, kind: "studio", workspaceRoot: "/tmp/studio-root" }],
-      }),
-    ).toBe("/tmp/studio-worktree");
   });
 
   it("resolves the materialized worktree path for a chat-kind thread once a worktree exists", () => {

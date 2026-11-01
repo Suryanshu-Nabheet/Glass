@@ -1404,19 +1404,17 @@ describe("chat/editor shortcuts", () => {
 
   it("matches Option+Command+B for the right sidebar while keeping Command+B separate", () => {
     assert.equal(
-      resolveShortcutCommand(
-        event({ key: "b", metaKey: true, altKey: true }),
-        DEFAULT_BINDINGS,
-        { platform: "MacIntel", context: { terminalFocus: false } },
-      ),
+      resolveShortcutCommand(event({ key: "b", metaKey: true, altKey: true }), DEFAULT_BINDINGS, {
+        platform: "MacIntel",
+        context: { terminalFocus: false },
+      }),
       "rightDock.toggle",
     );
     assert.equal(
-      resolveShortcutCommand(
-        event({ key: "b", metaKey: true }),
-        DEFAULT_BINDINGS,
-        { platform: "MacIntel", context: { terminalFocus: false } },
-      ),
+      resolveShortcutCommand(event({ key: "b", metaKey: true }), DEFAULT_BINDINGS, {
+        platform: "MacIntel",
+        context: { terminalFocus: false },
+      }),
       "sidebar.toggle",
     );
   });

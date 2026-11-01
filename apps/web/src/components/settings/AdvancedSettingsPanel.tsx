@@ -22,10 +22,7 @@ import { createAllThreadsMessagelessSelector, createThreadShellsSelector } from 
 import { useSettingsRestoreSignal } from "./SettingControls";
 import { SettingsRow, SettingsSection } from "./SettingsPanelPrimitives";
 
-export function AdvancedSettingsPanel(props: {
-  active: boolean;
-  resetEpoch: number;
-}) {
+export function AdvancedSettingsPanel(props: { active: boolean; resetEpoch: number }) {
   const configQuery = useQuery(serverConfigQueryOptions());
   const authSessionQuery = useQuery(serverAuthSessionQueryOptions());
   const syncServerReadModel = useStore((store) => store.syncServerReadModel);

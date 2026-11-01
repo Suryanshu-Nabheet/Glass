@@ -72,7 +72,6 @@ describe("isOrdinaryProjectRow", () => {
 
   it("rejects managed containers by kind and the legacy Home row by shape", () => {
     expect(isOrdinaryProjectRow({ ...row, projectKind: "chat" })).toBe(false);
-    expect(isOrdinaryProjectRow({ ...row, projectKind: "studio" })).toBe(false);
     expect(
       isOrdinaryProjectRow({
         projectKind: "project",

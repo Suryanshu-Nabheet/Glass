@@ -4,18 +4,18 @@ import { repairMarkdownTableDelimiters } from "./markdownTableRepair";
 describe("repairMarkdownTableDelimiters", () => {
   it("pads a delimiter row that has fewer cells than the header", () => {
     const source = [
-      "Studio vs. normal mode:",
+      "Mode comparison:",
       "",
-      "| | Normal mode (regular tasks/chats) | Studio |",
+      "| | Normal mode (regular tasks/chats) | Focus mode |",
       "|---|---|",
       "| Purpose | Focused, interactive work | Long-running, agent-led work |",
     ].join("\n");
 
     expect(repairMarkdownTableDelimiters(source)).toBe(
       [
-        "Studio vs. normal mode:",
+        "Mode comparison:",
         "",
-        "| | Normal mode (regular tasks/chats) | Studio |",
+        "| | Normal mode (regular tasks/chats) | Focus mode |",
         "| --- | --- | --- |",
         "| Purpose | Focused, interactive work | Long-running, agent-led work |",
       ].join("\n"),

@@ -176,7 +176,7 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
     definition: {
       name: "glass_list_projects",
       description:
-        "List Glass projects (id, title, workspace root). System-managed containers (the Chats and Studio surfaces) are not projects and are excluded. Use before creating a thread in another project.",
+        "List Glass projects (id, title, workspace root). System-managed Chats containers are not projects and are excluded. Use before creating a thread in another project.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: { title: "List Glass projects", ...READ_ONLY_TOOL_ANNOTATIONS },
     },

@@ -1590,34 +1590,6 @@ describe("ProviderRuntimeIngestion", () => {
     expect(assistantMessage?.streaming).toBe(false);
   });
 
-  it("prefers a persisted Studio copy over its provider-home image source", () => {
-    expect(
-      collectPersistedGeneratedImagePaths([
-        {
-          kind: "studio.outputs.captured",
-          payload: {
-            itemType: "studio_outputs",
-            data: {
-              files: [{ path: "Outbox/Images/generated.png" }],
-              generatedImage: {
-                sourcePath: "/codex/generated.png",
-                fullPath: "/studio/Outbox/Images/generated.png",
-              },
-            },
-          },
-        },
-        {
-          kind: "tool.completed",
-          payload: {
-            itemType: "image_generation",
-            status: "completed",
-            data: { kind: "codex.generated_image", path: "/codex/generated.png" },
-          },
-        },
-      ]),
-    ).toEqual(["/studio/Outbox/Images/generated.png"]);
-  });
-
   it("recovers generated-image references from persisted turn activities", async () => {
     // Simulates a server restart after the image activity was projected: this
     // ingestion instance has no matching entry in its in-memory pending cache.

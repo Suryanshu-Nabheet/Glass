@@ -99,7 +99,6 @@ describe("thread artifact workspace root", () => {
   it("uses a materialized worktree for file previews", () => {
     expect(
       resolveThreadArtifactWorkspaceRoot({
-        isStudioContainer: false,
         projectCwd: "/repo/project",
         threadWorkspaceCwd: "/repo/worktrees/feature",
       }),
@@ -109,21 +108,10 @@ describe("thread artifact workspace root", () => {
   it("keeps the project fallback while a normal thread worktree is pending", () => {
     expect(
       resolveThreadArtifactWorkspaceRoot({
-        isStudioContainer: false,
         projectCwd: "/repo/project",
         threadWorkspaceCwd: null,
       }),
     ).toBe("/repo/project");
-  });
-
-  it("does not escape a Studio thread's selected working directory", () => {
-    expect(
-      resolveThreadArtifactWorkspaceRoot({
-        isStudioContainer: true,
-        projectCwd: "/studio/root",
-        threadWorkspaceCwd: null,
-      }),
-    ).toBeNull();
   });
 });
 
@@ -1074,31 +1062,9 @@ describe("environment panel visibility", () => {
 });
 
 describe("git repository UI state", () => {
-  it("waits for positive repository detection in Studio", () => {
-    expect(
-      resolveGitRepoUiState({
-        isStudioContainer: true,
-        queriedIsRepo: undefined,
-      }),
-    ).toBe(false);
-    expect(
-      resolveGitRepoUiState({
-        isStudioContainer: true,
-        queriedIsRepo: true,
-      }),
-    ).toBe(true);
-    expect(
-      resolveGitRepoUiState({
-        isStudioContainer: true,
-        queriedIsRepo: false,
-      }),
-    ).toBe(false);
-  });
-
   it("keeps normal project Git UI stable while discovery is pending", () => {
     expect(
       resolveGitRepoUiState({
-        isStudioContainer: false,
         queriedIsRepo: undefined,
       }),
     ).toBe(true);

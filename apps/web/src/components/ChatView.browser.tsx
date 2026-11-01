@@ -48,7 +48,6 @@ import { extractTrailingBrowserAnnotations } from "../lib/browserAnnotations";
 import { isMacNavigatorPlatform } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { resetHomeChatProjectPrewarmStateForTests } from "../lib/chatProjects";
-import { resetStudioProjectPrewarmStateForTests } from "../lib/studioProjects";
 import { getRouter } from "../router";
 import { useSplitViewStore } from "../splitViewStore";
 import { useSpacesUiStore } from "../spacesUiStore";
@@ -92,8 +91,6 @@ const UUID_ROUTE_RE = /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 const PROJECT_ID = "project-1" as ProjectId;
 const OTHER_PROJECT_ID = "project-2" as ProjectId;
 const HOME_PROJECT_ID = "project-home" as ProjectId;
-const STUDIO_PROJECT_ID = "project-studio" as ProjectId;
-const STUDIO_DRAFT_THREAD_ID = "thread-studio-draft" as ThreadId;
 const NOW_ISO = "2026-03-04T12:00:00.000Z";
 const BASE_TIME_MS = Date.parse(NOW_ISO);
 const ATTACHMENT_SVG = "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='300'></svg>";
@@ -681,29 +678,6 @@ function withActiveHomeChatThread(snapshot: OrchestrationReadModel): Orchestrati
   };
 }
 
-function withStudioProject(snapshot: OrchestrationReadModel): OrchestrationReadModel {
-  return {
-    ...snapshot,
-    projects: [
-      ...snapshot.projects,
-      {
-        id: STUDIO_PROJECT_ID,
-        kind: "studio",
-        title: "Studio",
-        workspaceRoot: "/Users/tester/Documents/Glass/Studio",
-        defaultModelSelection: {
-          provider: "codex",
-          model: "gpt-5",
-        },
-        scripts: [],
-        createdAt: NOW_ISO,
-        updatedAt: NOW_ISO,
-        deletedAt: null,
-      },
-    ],
-  };
-}
-
 function withProjectScripts(
   snapshot: OrchestrationReadModel,
   scripts: OrchestrationReadModel["projects"][number]["scripts"],
@@ -1151,10 +1125,7 @@ function recordProjectCreateCommand(command: unknown): boolean {
         ...fixture.snapshot.projects.filter((project) => project.id !== projectId),
         {
           id: projectId,
-          kind:
-            "kind" in command && (command.kind === "chat" || command.kind === "studio")
-              ? command.kind
-              : "project",
+          kind: "kind" in command && command.kind === "chat" ? command.kind : "project",
           title: String(command.title),
           workspaceRoot: String(command.workspaceRoot),
           defaultModelSelection:
@@ -2089,7 +2060,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
     await resetWsNativeApiForTest();
     resetRetainedThreadDetailSubscriptionsForTests();
     await resetHomeChatProjectPrewarmStateForTests();
-    await resetStudioProjectPrewarmStateForTests();
     await setViewport(DEFAULT_VIEWPORT);
     attachmentResponseDelayMs = 0;
     attachmentUploadSequence = 0;
@@ -2100,7 +2070,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
     useWorkspacePathsStore.setState({
       homeDir: null,
       chatWorkspaceRoot: null,
-      studioWorkspaceRoot: null,
     });
     document.body.innerHTML = "";
     wsRequests.length = 0;
@@ -2147,7 +2116,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
   afterEach(async () => {
     await resetHomeChatProjectPrewarmStateForTests();
-    await resetStudioProjectPrewarmStateForTests();
     resetRetainedThreadDetailSubscriptionsForTests();
     document.body.innerHTML = "";
   });
@@ -5820,129 +5788,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
     }
   });
 
-  it("coalesces repeated Studio new-chat clicks and stays in Studio after navigation settles", async () => {
-    useComposerDraftStore.setState({
-      draftThreadsByThreadId: {
-        [STUDIO_DRAFT_THREAD_ID]: {
-          projectId: STUDIO_PROJECT_ID,
-          createdAt: NOW_ISO,
-          runtimeMode: "full-access",
-          interactionMode: "default",
-          entryPoint: "chat",
-          branch: null,
-          worktreePath: null,
-          envMode: "local",
-        },
-      },
-      projectDraftThreadIdByProjectId: {
-        [STUDIO_PROJECT_ID]: STUDIO_DRAFT_THREAD_ID,
-      },
-    });
-
-    const mounted = await mountChatView({
-      viewport: DEFAULT_VIEWPORT,
-      // Keep one non-Studio server thread in the snapshot. This matches the real failure: Studio
-      // has no persisted chats, while the global missing-thread recovery sees known threads and
-      // immediately redirects a transiently-cleared Studio draft to the home index.
-      snapshot: withStudioProject(
-        withHomeChatProject(
-          createSnapshotForTargetUser({
-            targetMessageId: "msg-user-studio-draft-regression" as MessageId,
-            targetText: "projects-side thread",
-          }),
-        ),
-      ),
-      initialEntry: `/${STUDIO_DRAFT_THREAD_ID}`,
-      configureFixture: (nextFixture) => {
-        nextFixture.welcome = {
-          ...nextFixture.welcome,
-          homeDir: "/Users/tester",
-          chatWorkspaceRoot: "/Users/tester/Documents/Glass",
-          studioWorkspaceRoot: "/Users/tester/Documents/Glass/Studio",
-        };
-      },
-    });
-
-    try {
-      const newStudioChatButton = await waitForElement(
-        () => document.querySelector<HTMLButtonElement>('button[aria-label="New studio chat"]'),
-        "Unable to find the Studio new-chat action.",
-      );
-      newStudioChatButton.click();
-      newStudioChatButton.click();
-
-      const newThreadPath = await waitForURL(
-        mounted.router,
-        (path) => UUID_ROUTE_RE.test(path),
-        "A fresh Studio chat should navigate to a new draft UUID.",
-      );
-      const newThreadId = newThreadPath.slice(1) as ThreadId;
-
-      await vi.waitFor(
-        () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
-            projectId: STUDIO_PROJECT_ID,
-            entryPoint: "chat",
-            envMode: "local",
-            branch: null,
-            worktreePath: null,
-            workingDirectory: null,
-          });
-          expect(document.querySelector('[data-testid="workspace-picker-trigger"]')).not.toBeNull();
-          expect(
-            useComposerDraftStore.getState().projectDraftThreadIdByProjectId[HOME_PROJECT_ID],
-          ).toBeUndefined();
-          expect(mounted.router.state.location.pathname).toBe(newThreadPath);
-        },
-        { timeout: 8_000, interval: 16 },
-      );
-
-      await page.getByTestId("workspace-picker-trigger").click();
-      const projectFolderOption = await waitForElement(
-        () =>
-          Array.from(document.querySelectorAll<HTMLElement>('[data-slot="combobox-item"]')).find(
-            (item) => item.textContent?.trim() === "project",
-          ) ?? null,
-        "Unable to find the reference folder option.",
-      );
-      projectFolderOption.click();
-      await vi.waitFor(
-        () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
-            projectId: STUDIO_PROJECT_ID,
-            envMode: "local",
-            branch: null,
-            worktreePath: null,
-            workingDirectory: "/repo/project",
-          });
-        },
-        { timeout: 8_000, interval: 16 },
-      );
-
-      // A superseded navigation resolves the older navigate() promise before the newer route has
-      // committed. Give route effects enough time to expose a late Home redirect, then assert the
-      // stable final state and cleanup of the displaced Studio draft.
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
-      await vi.waitFor(
-        () => {
-          const state = useComposerDraftStore.getState();
-          const studioDraftIds = Object.entries(state.draftThreadsByThreadId)
-            .filter(([, draft]) => draft.projectId === STUDIO_PROJECT_ID)
-            .map(([threadId]) => threadId);
-          expect(mounted.router.state.status).toBe("idle");
-          expect(mounted.router.state.location.pathname).toBe(newThreadPath);
-          expect(state.getDraftThread(STUDIO_DRAFT_THREAD_ID)).toBeNull();
-          expect(studioDraftIds).toEqual([newThreadId]);
-          expect(state.projectDraftThreadIdByProjectId[STUDIO_PROJECT_ID]).toBe(newThreadId);
-          expect(state.projectDraftThreadIdByProjectId[HOME_PROJECT_ID]).toBeUndefined();
-        },
-        { timeout: 8_000, interval: 16 },
-      );
-    } finally {
-      await mounted.cleanup();
-    }
-  });
-
   it("can detach an empty project draft back to a normal chat before first send", async () => {
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
@@ -6037,7 +5882,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
-      snapshot: withStudioProject(withHomeChatProject(createDraftOnlySnapshot())),
+      snapshot: withHomeChatProject(createDraftOnlySnapshot()),
       configureFixture: (nextFixture) => {
         nextFixture.welcome = {
           ...nextFixture.welcome,
@@ -6741,13 +6586,11 @@ describe("ChatView timeline estimator parity (full app)", () => {
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: withProjectScripts(
-        withStudioProject(
-          withHomeChatProject(
-            createSnapshotForTargetUser({
-              targetMessageId: "msg-user-new-worktree-setup-action-test" as MessageId,
-              targetText: "new worktree setup action test",
-            }),
-          ),
+        withHomeChatProject(
+          createSnapshotForTargetUser({
+            targetMessageId: "msg-user-new-worktree-setup-action-test" as MessageId,
+            targetText: "new worktree setup action test",
+          }),
         ),
         [
           {
@@ -7103,7 +6946,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
           ...nextFixture.welcome,
           homeDir: "/Users/tester",
           chatWorkspaceRoot: "/Users/tester/Documents/Glass",
-          studioWorkspaceRoot: "/Users/tester/Documents/Glass/Studio",
         };
       },
     });
@@ -7345,7 +7187,6 @@ describe("ChatView timeline estimator parity (full app)", () => {
           ...nextFixture.welcome,
           homeDir: "/Users/tester",
           chatWorkspaceRoot: "/Users/tester/Documents/Glass",
-          studioWorkspaceRoot: "/Users/tester/Documents/Glass/Studio",
         };
         nextFixture.serverConfig = {
           ...nextFixture.serverConfig,

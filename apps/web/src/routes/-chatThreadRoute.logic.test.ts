@@ -44,10 +44,10 @@ describe("resolveFilePreviewWorkspaceRoot", () => {
     ).toBe("/repo/project");
   });
 
-  it("uses a Studio thread working directory ahead of its container project", () => {
+  it("uses a thread working directory ahead of its project", () => {
     expect(
       resolveFilePreviewWorkspaceRoot({
-        projectCwd: "/glass/studio",
+        projectCwd: "/glass/project",
         threadEnvMode: "local",
         threadWorktreePath: null,
         threadWorkingDirectory: "/repo/external",

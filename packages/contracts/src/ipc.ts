@@ -163,7 +163,6 @@ import type {
   DeviceTypeTextInput,
   ThreadDeviceState,
 } from "./device";
-import type { StudioListThreadOutputsInput, StudioListThreadOutputsResult } from "./studio";
 import type {
   ServerConfig,
   ServerDiagnosticsResult,
@@ -647,11 +646,6 @@ export interface NativeApi {
   };
   filesystem: {
     browse: (input: FilesystemBrowseInput) => Promise<FilesystemBrowseResult>;
-  };
-  studio: {
-    listThreadOutputs: (
-      input: StudioListThreadOutputsInput,
-    ) => Promise<StudioListThreadOutputsResult>;
   };
   shell: {
     openInEditor: (cwd: string, editor: EditorId) => Promise<void>;

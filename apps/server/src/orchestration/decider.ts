@@ -66,10 +66,9 @@ import {
 
 const nowIso = () => new Date().toISOString();
 const DEFAULT_ASSISTANT_DELIVERY_MODE = "buffered" as const;
-const STUDIO_PROJECT_KIND_SET = new Set<ProjectKind>(["studio"]);
 // Kinds that claim exclusive ownership of a workspace root. Chat containers are excluded: they
 // use placeholder roots (e.g. the home dir) that legitimately coexist with real projects.
-const WORKSPACE_OWNING_PROJECT_KIND_SET = new Set<ProjectKind>(["project", "studio"]);
+const WORKSPACE_OWNING_PROJECT_KIND_SET = new Set<ProjectKind>(["project"]);
 
 function validateAutoRuntimeMode(
   command: OrchestrationCommand,
@@ -182,9 +181,8 @@ function validateProjectPinLimit(input: {
   readonly wasPinned?: boolean;
   readonly staleProjectIds?: ReadonlySet<string>;
 }): Effect.Effect<void, OrchestrationCommandInvariantError> {
-  // The kind invariant must hold for the EFFECTIVE pin state, not only when the command sets
-  // isPinned: a kind-only update (e.g. project -> studio) would otherwise carry an existing pin
-  // onto a kind that can never be pinned.
+  // The kind invariant must hold for the effective pin state, not only when the command sets
+  // isPinned: a kind-only update could otherwise carry a pin onto a non-project container.
   const nextIsPinned = input.command.isPinned ?? input.wasPinned ?? false;
   if (nextIsPinned && input.nextKind !== "project") {
     return Effect.fail(
@@ -284,25 +282,7 @@ type CreatedThreadWorkspaceCommand = Pick<
   | "associatedWorktreeRef"
 >;
 
-function resolveCreatedThreadWorkspaceMetadata(
-  projectKind: ProjectKind | undefined,
-  command: CreatedThreadWorkspaceCommand,
-) {
-  if (projectKind === "studio") {
-    return {
-      envMode: "local" as const,
-      branch: null,
-      worktreePath: null,
-      // Backward compatibility: older Studio clients sent "Use a folder" through
-      // worktreePath. Preserve that folder while stripping its worktree semantics.
-      workingDirectory:
-        command.workingDirectory !== undefined ? command.workingDirectory : command.worktreePath,
-      associatedWorktreePath: null,
-      associatedWorktreeBranch: null,
-      associatedWorktreeRef: null,
-    };
-  }
-
+function resolveCreatedThreadWorkspaceMetadata(command: CreatedThreadWorkspaceCommand) {
   return {
     envMode: command.envMode,
     branch: command.branch,
@@ -400,28 +380,8 @@ function resolveThreadGoalPatch(
 }
 
 function resolveThreadWorkspaceMetadataPatch(
-  projectKind: ProjectKind | undefined,
   command: Extract<OrchestrationCommand, { type: "thread.meta.update" }>,
-  currentThread: OrchestrationThread,
 ) {
-  if (projectKind === "studio") {
-    return {
-      envMode: "local" as const,
-      branch: null,
-      worktreePath: null,
-      workingDirectory:
-        command.workingDirectory !== undefined
-          ? command.workingDirectory
-          : command.worktreePath
-            ? command.worktreePath
-            : (currentThread.workingDirectory ?? currentThread.worktreePath),
-      associatedWorktreePath: null,
-      associatedWorktreeBranch: null,
-      associatedWorktreeRef: null,
-      createBranchFlowCompleted: false,
-    };
-  }
-
   return {
     ...(command.envMode !== undefined ? { envMode: command.envMode } : {}),
     ...(command.branch !== undefined ? { branch: command.branch } : {}),
@@ -671,20 +631,6 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
       const staleProjects: Array<OrchestrationReadModel["projects"][number]> = [];
       const nextProjectKind = command.kind ?? "project";
       if (nextProjectKind === "project") {
-        // The app-managed Studio container owns its root exclusively and is never retired here:
-        // silently deleting it would orphan Studio threads, so adding its folder as a project
-        // is rejected outright.
-        const existingStudioProject = listActiveProjectsByWorkspaceRoot(
-          readModel,
-          command.workspaceRoot,
-          { kinds: STUDIO_PROJECT_KIND_SET },
-        )[0];
-        if (existingStudioProject) {
-          return yield* new OrchestrationCommandInvariantError({
-            commandType: command.type,
-            detail: `Project '${existingStudioProject.id}' already uses workspace root '${existingStudioProject.workspaceRoot}'.`,
-          });
-        }
         const existingProjects = listActiveProjectsByWorkspaceRoot(
           readModel,
           command.workspaceRoot,
@@ -717,22 +663,6 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
               projectId: staleProject.id,
               deletedAt: command.createdAt,
             },
-          });
-        }
-      }
-      if (nextProjectKind === "studio") {
-        // Cross-kind on purpose: a regular project already using this root would otherwise
-        // coexist with the Studio container, breaking workspace-root-to-project uniqueness
-        // that shell snapshot mapping and duplicate recovery rely on.
-        const existingOwningProject = listActiveProjectsByWorkspaceRoot(
-          readModel,
-          command.workspaceRoot,
-          { kinds: WORKSPACE_OWNING_PROJECT_KIND_SET },
-        )[0];
-        if (existingOwningProject) {
-          return yield* new OrchestrationCommandInvariantError({
-            commandType: command.type,
-            detail: `Project '${existingOwningProject.id}' already uses workspace root '${existingOwningProject.workspaceRoot}'.`,
           });
         }
       }
@@ -875,9 +805,8 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         });
       }
       // Ownership must hold for the project's *effective* root, not only when the root field is
-      // present on the command: a kind-only update (e.g. chat -> studio) would otherwise slip a
-      // second workspace-owning project onto a root that a project- or studio-kind row already
-      // claims, bypassing the same cross-kind rule project.create enforces.
+      // present on the command: a kind-only update could otherwise slip a second
+      // workspace-owning project onto an already-claimed root.
       const ownershipMayChange =
         command.workspaceRoot !== undefined ||
         (command.kind !== undefined && command.kind !== (existingProject.kind ?? "project"));
@@ -983,9 +912,8 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           modelSelection: command.modelSelection,
           runtimeMode: command.runtimeMode,
           interactionMode: command.interactionMode,
-          ...resolveCreatedThreadWorkspaceMetadata(project.kind, command),
-          createBranchFlowCompleted:
-            project.kind === "studio" ? false : command.createBranchFlowCompleted,
+          ...resolveCreatedThreadWorkspaceMetadata(command),
+          createBranchFlowCompleted: command.createBranchFlowCompleted,
           isPinned: command.isPinned,
           parentThreadId: command.parentThreadId,
           ...(command.creationSource !== undefined
@@ -1060,9 +988,8 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           modelSelection: command.modelSelection,
           runtimeMode: command.runtimeMode,
           interactionMode: command.interactionMode,
-          ...resolveCreatedThreadWorkspaceMetadata(project.kind, command),
-          createBranchFlowCompleted:
-            project.kind === "studio" ? false : command.createBranchFlowCompleted,
+          ...resolveCreatedThreadWorkspaceMetadata(command),
+          createBranchFlowCompleted: command.createBranchFlowCompleted,
           isPinned: false,
           parentThreadId: null,
           subagentAgentId: null,
@@ -1161,9 +1088,8 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           modelSelection: command.modelSelection,
           runtimeMode: command.runtimeMode,
           interactionMode: command.interactionMode,
-          ...resolveCreatedThreadWorkspaceMetadata(project.kind, command),
-          createBranchFlowCompleted:
-            project.kind === "studio" ? false : command.createBranchFlowCompleted,
+          ...resolveCreatedThreadWorkspaceMetadata(command),
+          createBranchFlowCompleted: command.createBranchFlowCompleted,
           isPinned: false,
           parentThreadId: null,
           subagentAgentId: null,
@@ -1324,7 +1250,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           ...(command.modelSelection !== undefined
             ? { modelSelection: command.modelSelection }
             : {}),
-          ...resolveThreadWorkspaceMetadataPatch(project?.kind, command, thread),
+          ...resolveThreadWorkspaceMetadataPatch(command),
           ...(command.isPinned !== undefined ? { isPinned: command.isPinned } : {}),
           ...(command.isSettled !== undefined
             ? { settledAt: command.isSettled ? occurredAt : null }

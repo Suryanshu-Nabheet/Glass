@@ -1571,13 +1571,6 @@ describe("AgentGateway", () => {
         },
         {
           ...makeProjectShell(),
-          id: ProjectId.makeUnsafe("project-studio-container"),
-          kind: "studio",
-          title: "Studio",
-          workspaceRoot: `${homeDir}/Documents/Glass/Studio`,
-        },
-        {
-          ...makeProjectShell(),
           id: ProjectId.makeUnsafe("project-legacy-home"),
           kind: "project",
           title: "Home",

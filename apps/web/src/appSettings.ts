@@ -221,10 +221,8 @@ export const AppSettingsSchema = Schema.Struct({
   showPullRequestDiffColors: Schema.Boolean.pipe(withDefaults(() => true)),
   // Local-only UI preferences for hiding sidebar surfaces a user doesn't want.
   // `showChatsSection` controls the standalone "Chats" list in the sidebar footer
-  // (rootless chats not tied to a project). `showStudioSection` controls the
-  // optional Studio tab in the section switcher.
+  // (rootless chats not tied to a project).
   showChatsSection: Schema.Boolean.pipe(withDefaults(() => true)),
-  showStudioSection: Schema.Boolean.pipe(withDefaults(() => true)),
   // Whether the per-run threads standalone automations create appear in the sidebar
   // (and the surfaces derived from it: Kanban, Activity, project picker). Runs stay
   // listed on the automation's page and findable via search either way.
