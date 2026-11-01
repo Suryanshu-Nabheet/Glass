@@ -89,7 +89,7 @@ import {
 } from "./ChatThreadSurfacePrimitives";
 import { PanelStateMessage } from "./PanelStateMessage";
 import { RightDock } from "./RightDock";
-import { getRightDockPaneMeta, resolveRightDockLauncherItems } from "./rightDockPaneMeta";
+import { resolveRightDockLauncherItems } from "./rightDockPaneMeta";
 import {
   CHAT_BACKGROUND_CLASS_NAME,
   CHAT_MAIN_CONTENT_SURFACE_CLASS_NAME,
@@ -165,9 +165,8 @@ function shouldAcceptDockWidth({
   });
 }
 
-function RightDockPanePlaceholder(props: { kind: RightDockPaneKind }) {
-  const { label } = getRightDockPaneMeta(props.kind);
-  return <PanelStateMessage>{label} panel is coming soon.</PanelStateMessage>;
+function RightDockPaneUnavailable(props: { message: string }) {
+  return <PanelStateMessage>{props.message}</PanelStateMessage>;
 }
 
 // Embedded dock chats (side chats) manage their own panels through the dock, so the
@@ -920,7 +919,11 @@ export function SingleChatSurface(props: {
         );
       case "sidechat":
         if (!pane.threadId) {
-          return <RightDockPanePlaceholder kind="sidechat" />;
+          return (
+            <RightDockPaneUnavailable
+              message="This side chat has no linked thread. Close it and open a new side chat from a thread."
+            />
+          );
         }
         if (!threadSummaries.some((thread) => thread.id === pane.threadId)) {
           return <PanelStateMessage>Loading side chat...</PanelStateMessage>;
@@ -944,7 +947,7 @@ export function SingleChatSurface(props: {
           />
         );
       default:
-        return <RightDockPanePlaceholder kind={pane.kind} />;
+        return <RightDockPaneUnavailable message="This panel is no longer available." />;
     }
   };
 

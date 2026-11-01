@@ -494,8 +494,10 @@ type ModelDefinition = {
 };
 
 /**
- * TODO: This should not be a static array, each provider
- * should return its own model list over the WS API.
+ * Static compatibility options supplement provider model discovery over the
+ * WebSocket API. Runtime catalogs are authoritative for providers that expose
+ * a complete catalog; this list supplies stable defaults while discovery is
+ * unavailable and preserves capabilities needed by providers without one.
  */
 export const MODEL_OPTIONS_BY_PROVIDER = {
   codex: [
