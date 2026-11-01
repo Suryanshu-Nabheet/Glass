@@ -4,12 +4,12 @@
 
 export const GLASS_APP_NAME = "Glass";
 
-export const GLASS_TAGLINE = "A local-first workspace for coding agents.";
+export const GLASS_TAGLINE = "A fundamental architecture of interaction.";
 
 export const GLASS_POSITIONING = `${GLASS_APP_NAME} — ${GLASS_TAGLINE}`;
 
 export const GLASS_META_DESCRIPTION =
-  "Glass is a local-first coding-agent workspace for parallel sessions, project activity, worktrees, terminals, browser previews, and MCP.";
+  "Glass makes AI-assisted creation transparent, understandable, and controllable while keeping people involved in shaping work and artifacts.";
 
 export const GLASS_GITHUB_REPO = "https://github.com/Suryanshu-Nabheet/Glass";
 

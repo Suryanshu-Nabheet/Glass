@@ -1,5 +1,5 @@
 // FILE: ProfileSettingsPanel.tsx
-// Purpose: Local-first profile / stats dashboard rendered inside Settings → Profile. Core
+// Purpose: Profile / stats dashboard rendered inside Settings → Profile. Core
 // stats render instantly from a fast SQL RPC; lifetime/peak token figures and the tokens/day
 // heatmap stream in from a second DB-backed RPC. Centered, low-chrome layout
 // with an explicit edit mode for the local name + handle.
