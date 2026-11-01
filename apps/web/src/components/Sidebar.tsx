@@ -10,13 +10,11 @@ import {
   ExternalLinkIcon,
   FolderOpenIcon,
   KanbanIcon,
-  BellIcon,
   type LucideIcon,
   NewThreadIcon,
   PencilIcon,
   PinIcon,
   PlayIcon,
-  SearchIcon,
   SettingsIcon,
   StopFilledIcon,
   TemporaryThreadIcon,
@@ -95,7 +93,6 @@ import {
   useAppSettings,
 } from "../appSettings";
 import { isElectron } from "../env";
-import { GLASS_ACTIVITY_ONBOARDING } from "../productVoice";
 import { formatRelativeTime } from "../lib/relativeTime";
 import {
   isMacNavigatorPlatform,
@@ -185,9 +182,8 @@ import {
   createThreadHoverCardAnchor,
 } from "./sidebarHoverCardAnchors";
 import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "./ui/preview-card";
-import { hasUnreadActivity as hasUnreadActivityOutsideActiveThread } from "./SidebarActivityView.logic";
 import { SidebarActivityView } from "./SidebarActivityView";
-import { SidebarIconButton, sidebarIconButtonSlotClass } from "./SidebarIconButton";
+import { SidebarIconButton } from "./SidebarIconButton";
 import { SidebarLeadingIcon } from "./SidebarLeadingIcon";
 import { SidebarMetaChipStack } from "./SidebarMetaChip";
 import { SidebarRowHoverActions } from "./SidebarRowHoverActions";
@@ -999,125 +995,6 @@ function SortableProjectItem({
   );
 }
 
-/**
- * Header Activity toggle: a bell that lights up in the accent tone while the
- * Activity view is on, with an unread dot when completions are waiting.
- */
-const ACTIVITY_ONBOARDING_STORAGE_KEY = "glass:activity-onboarding:v1";
-const ACTIVITY_ONBOARDING_DURATION_MS = 8_000;
-
-function shouldShowActivityOnboarding(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(ACTIVITY_ONBOARDING_STORAGE_KEY) !== "seen";
-  } catch {
-    return true;
-  }
-}
-
-function SidebarActivityBellButton({
-  active,
-  showUnreadDot,
-  shortcutLabel,
-  onClick,
-}: {
-  active: boolean;
-  showUnreadDot: boolean;
-  shortcutLabel: string | null;
-  onClick: () => void;
-}) {
-  const [onboardingVisible, setOnboardingVisible] = useState(shouldShowActivityOnboarding);
-  const [tooltipOpen, setTooltipOpen] = useState(onboardingVisible);
-
-  useEffect(() => {
-    if (!onboardingVisible) return;
-    try {
-      window.localStorage.setItem(ACTIVITY_ONBOARDING_STORAGE_KEY, "seen");
-    } catch {
-      // Storage can be unavailable in private or restricted browser contexts.
-    }
-    const timeout = window.setTimeout(() => {
-      setOnboardingVisible(false);
-      setTooltipOpen(false);
-    }, ACTIVITY_ONBOARDING_DURATION_MS);
-    return () => window.clearTimeout(timeout);
-  }, [onboardingVisible]);
-
-  const dismissOnboarding = () => {
-    setOnboardingVisible(false);
-    setTooltipOpen(false);
-  };
-
-  return (
-    <Tooltip
-      open={tooltipOpen}
-      onOpenChange={(open) => {
-        if (onboardingVisible && !open) return;
-        setTooltipOpen(open);
-      }}
-    >
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            aria-label={active ? "Switch to classic view" : "Switch to activity view"}
-            aria-pressed={active}
-            onClick={() => {
-              dismissOnboarding();
-              onClick();
-            }}
-            className={cn(
-              "relative inline-flex shrink-0 cursor-pointer items-center justify-center transition-colors",
-              sidebarIconButtonSlotClass("header"),
-              SIDEBAR_ROW_FOCUS_CLASS_NAME,
-              active
-                ? "bg-[color-mix(in_srgb,var(--color-text-accent)_15%,transparent)] text-[var(--color-text-accent)]"
-                : "sidebar-icon-button text-muted-foreground/75 hover:text-foreground",
-            )}
-          />
-        }
-      >
-        <BellIcon className={sidebarGlyphClass("leading")} />
-        {showUnreadDot ? (
-          <span
-            aria-hidden
-            className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-[var(--color-text-accent)] ring-2 ring-[var(--sidebar-background,var(--background))]"
-          />
-        ) : null}
-      </TooltipTrigger>
-      <TooltipPopup
-        side={onboardingVisible ? "right" : "bottom"}
-        align={onboardingVisible ? "start" : "center"}
-        sideOffset={onboardingVisible ? 8 : 4}
-        className={cn(
-          onboardingVisible &&
-            "max-w-64 border-[var(--color-text-accent)] bg-[var(--color-text-accent)] text-white shadow-lg",
-        )}
-        viewportClassName={cn(onboardingVisible && "px-3 py-2.5")}
-      >
-        {onboardingVisible ? (
-          <div className="text-left">
-            <div className="text-xs font-semibold">{GLASS_ACTIVITY_ONBOARDING.title}</div>
-            <div className="mt-0.5 text-[11px] leading-4 text-white/85">
-              {GLASS_ACTIVITY_ONBOARDING.description}
-            </div>
-          </div>
-        ) : (
-          `Activity view${shortcutLabel ? ` (${shortcutLabel})` : ""}`
-        )}
-      </TooltipPopup>
-    </Tooltip>
-  );
-}
-
-function SidebarProductName() {
-  return (
-    <div className="flex h-8 min-w-0 items-center px-2.5">
-      <span className="font-display min-w-0 truncate text-[17px] text-foreground">Glass</span>
-    </div>
-  );
-}
-
 export default function Sidebar() {
   const githubProvisioningAvailable = useSyncExternalStore(
     subscribeGitHubProvisioningCapability,
@@ -1340,10 +1217,6 @@ export default function Sidebar() {
     shortcutLabelForCommand(keybindings, "chat.newChat") ??
     shortcutLabelForCommand(keybindings, "chat.newLocal");
   const newTerminalThreadShortcutLabel = shortcutLabelForCommand(keybindings, "chat.newTerminal");
-  const searchShortcutLabel =
-    shortcutLabelForCommand(keybindings, "sidebar.search") ??
-    (isMacNavigatorPlatform() ? "⌘K" : "Ctrl+K");
-  const activityShortcutLabel = shortcutLabelForCommand(keybindings, "sidebar.activity");
   const importThreadShortcutLabel =
     shortcutLabelForCommand(keybindings, "sidebar.importThread") ??
     (isMacNavigatorPlatform() ? "⌘I" : "Ctrl+I");
@@ -1457,19 +1330,13 @@ export default function Sidebar() {
   // Legacy rootless conversations join the same collection and navigation as Chats.
   const unifiedSidebarThreads = sidebarThreads;
   const unifiedSidebarTreeThreads = sidebarTreeThreads;
-  // Activity view + unread bell read the same visibility-filtered list, so the
-  // bell can never point at a row the Activity list is hiding.
+  // Activity view reads the same visibility-filtered list as the project list.
   const visibleChatSidebarThreads = useMemo(
     () =>
       unifiedSidebarThreads.filter((thread) =>
         isSidebarThreadVisible(thread, { hideAutomationRunThreads }),
       ),
     [hideAutomationRunThreads, unifiedSidebarThreads],
-  );
-  // Drives the unread dot on the header Activity bell.
-  const hasUnreadActivity = useMemo(
-    () => hasUnreadActivityOutsideActiveThread(visibleChatSidebarThreads, activeSidebarThreadId),
-    [activeSidebarThreadId, visibleChatSidebarThreads],
   );
   const dismissThreadStatus = useCallback(
     (threadId: ThreadId, statusKey: string | null | undefined) => {
@@ -5367,28 +5234,6 @@ export default function Sidebar() {
           </SidebarGroup>
         ) : (
           <>
-            <div className="flex items-center gap-1 pt-0 pb-1 pr-2.5 pl-1.5">
-              <SidebarProductName />
-              <div className="ml-auto flex items-center gap-1.5">
-                <SidebarIconButton
-                  icon={SearchIcon}
-                  label="Search"
-                  glyph="leading"
-                  size="header"
-                  tooltip={searchShortcutLabel ? `Search (${searchShortcutLabel})` : "Search"}
-                  tooltipSide="bottom"
-                  onClick={() => {
-                    setSearchPaletteOpen(true);
-                  }}
-                />
-                <SidebarActivityBellButton
-                  active={activityViewEnabled}
-                  showUnreadDot={hasUnreadActivity}
-                  shortcutLabel={activityShortcutLabel}
-                  onClick={() => setActivityViewEnabledSmoothly(!activityViewEnabled)}
-                />
-              </div>
-            </div>
             {/* The keyed content remounts when switching between Activity and project lists. */}
             <div
               key={activityViewEnabled ? "activity" : "threads"}
