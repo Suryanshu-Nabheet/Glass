@@ -5,7 +5,6 @@
 import { type ProviderKind, type ThreadId } from "@glass/contracts";
 import { memo, type ReactNode } from "react";
 
-import { QuantumLogo } from "../QuantumLogo";
 import { cn } from "~/lib/utils";
 
 export interface CrossTaskOrigin {
@@ -14,17 +13,10 @@ export interface CrossTaskOrigin {
 }
 
 // A single, app-level attribution: the message reached this thread from another
-// Glass thread, so it always reads as "Sent by Glass" with the Glass mark
-// (the origin provider is not surfaced here to keep one consistent label).
+// Glass thread, so it always reads as "Sent by Glass" (the origin provider is
+// not surfaced here to keep one consistent label).
 function OriginContent(): ReactNode {
-  return (
-    <>
-      <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground/70">
-        <QuantumLogo className="h-4 w-auto" aria-label="Glass" />
-      </span>
-      <span className="truncate">Sent by Glass from another thread</span>
-    </>
-  );
+  return <span className="truncate">Sent by Glass from another thread</span>;
 }
 
 export const CrossTaskOriginLabel = memo(function CrossTaskOriginLabel({

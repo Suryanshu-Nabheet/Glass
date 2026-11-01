@@ -54,7 +54,6 @@ import { DiffStatLabel } from "./DiffStatLabel";
 import { type ExpandedImagePreview } from "./ExpandedImagePreview";
 import { LinkChipIcon } from "../LinkChipIcon";
 import { normalizeCompactToolLabel } from "./MessagesTimeline.logic";
-import { QuantumLogo } from "../QuantumLogo";
 import { ToolCallDetailsContent } from "./ToolCallDetailsDialog";
 import { DisclosureChevron } from "../ui/DisclosureChevron";
 import { DisclosureRegion } from "../ui/DisclosureRegion";
@@ -92,12 +91,7 @@ type TimelineWorkEntry = WorkLogEntry;
 
 const AgentTaskIcon: LucideIcon = (props) => <BotIcon {...props} />;
 
-const GlassToolIcon: LucideIcon = ({ className, width, height, color: _color, ..._props }) => (
-  <QuantumLogo
-    className={cn("size-4 shrink-0 object-contain text-current", className)}
-    style={{ width: width ?? 16, height: height ?? 16 }}
-  />
-);
+const GlassToolIcon: LucideIcon = McpIcon;
 
 function workToneIcon(tone: TimelineWorkEntry["tone"]): {
   icon: LucideIcon;

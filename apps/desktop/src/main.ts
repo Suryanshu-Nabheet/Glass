@@ -1688,9 +1688,9 @@ function resolveNotificationIconPath(): string | null {
     return null;
   }
   if (process.platform === "win32") {
-    return resolveResourcePath("quantum.png") ?? resolveIconPath("ico");
+    return resolveIconPath("ico");
   }
-  return resolveResourcePath("quantum.png") ?? resolveIconPath("png");
+  return resolveIconPath("png");
 }
 
 function resolveAppSnapHelperPath(): string {

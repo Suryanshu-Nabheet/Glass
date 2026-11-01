@@ -9,7 +9,6 @@ import { type KeyboardEvent } from "react";
 
 import { XIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
-import { QuantumLogo } from "~/components/QuantumLogo";
 
 import type { WhatsNewEntry } from "./logic";
 
@@ -98,9 +97,7 @@ export function WhatsNewPopoutCard({
           <XIcon className="size-3.5" />
         </button>
 
-        {/* Hero band: screenshot when the entry supplies one, otherwise a
-            branded gradient + icon so every release still gets a polished
-            visual. */}
+        {/* Hero band: show a release screenshot when one is available. */}
         <div className="relative h-24 w-full overflow-hidden">
           {entry.heroImage !== undefined ? (
             <img
@@ -110,14 +107,7 @@ export function WhatsNewPopoutCard({
               loading="lazy"
               decoding="async"
             />
-          ) : (
-            <div
-              aria-hidden="true"
-              className="flex h-full w-full items-center justify-center bg-[radial-gradient(120%_140%_at_10%_0%,color-mix(in_srgb,var(--color-primary)_38%,transparent)_0%,transparent_60%),radial-gradient(100%_120%_at_100%_100%,color-mix(in_srgb,var(--color-primary)_22%,transparent)_0%,transparent_70%)]"
-            >
-              <QuantumLogo aria-hidden className="size-9 text-foreground" />
-            </div>
-          )}
+          ) : <div aria-hidden="true" className="h-full w-full bg-muted/35" />}
           {/* Subtle bottom gradient so text below the band always reads. */}
           <div
             aria-hidden="true"

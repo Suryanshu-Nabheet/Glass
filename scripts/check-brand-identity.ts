@@ -3,8 +3,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 
 const characters = (...codes: number[]): string => String.fromCharCode(...codes);
 const retiredShortName = characters(116, 51);
@@ -117,43 +116,14 @@ export function findVisualBrandAssetViolations(
   return violations;
 }
 
-function collectFiles(dir: string, baseDir: string = dir): string[] {
-  const IGNORED = new Set(["node_modules", ".turbo", ".glass", ".vscode", "dist", "dist-electron"]);
-  const results: string[] = [];
-  try {
-    const entries = readdirSync(dir);
-    for (const entry of entries) {
-      if (IGNORED.has(entry)) continue;
-      const fullPath = join(dir, entry);
-      const relPath = fullPath.startsWith(baseDir + "/")
-        ? fullPath.slice(baseDir.length + 1)
-        : fullPath;
-      const stat = statSync(fullPath);
-      if (stat.isDirectory()) {
-        results.push(...collectFiles(fullPath, baseDir));
-      } else if (stat.isFile()) {
-        results.push(relPath);
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return results;
-}
-
 function readTrackedFiles(): BrandIdentityBinaryFile[] {
-  try {
-    const paths = execFileSync("git", ["ls-files", "-z"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    })
-      .split("\0")
-      .filter(Boolean);
-    return paths.map((path) => ({ path, contents: readFileSync(path) }));
-  } catch {
-    const paths = collectFiles(".");
-    return paths.map((path) => ({ path, contents: readFileSync(path) }));
-  }
+  const paths = execFileSync("git", ["-c", "core.fsmonitor=false", "ls-files", "-z"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  })
+    .split("\0")
+    .filter((path) => path.length > 0 && existsSync(path));
+  return paths.map((path) => ({ path, contents: readFileSync(path) }));
 }
 
 function main(): void {

@@ -9,7 +9,6 @@ import { GLASS_CHECKOUT_SHORT_LABEL } from "~/productVoice";
 
 import type { WorkLogGlassThreadCreation } from "../../session-logic";
 import { ProviderIcon } from "../ProviderIcon";
-import { QuantumLogo } from "../QuantumLogo";
 import { Button } from "../ui/button";
 
 function threadMeta(thread: WorkLogGlassThreadCreation["threads"][number]): string {
@@ -37,9 +36,6 @@ export const GlassThreadCreationCard = memo(function GlassThreadCreationCard({
       data-glass-thread-creation-card="true"
     >
       <div className="flex min-w-0 items-center gap-3 px-3 py-2.5">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-background-elevated-secondary)] text-foreground">
-          <QuantumLogo className="h-[22px] w-auto" aria-label="Glass" />
-        </span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-system-ui text-[length:var(--app-font-size-ui-lg,13px)] font-medium text-foreground/95">
             {title}
