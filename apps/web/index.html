@@ -39,8 +39,11 @@
         -webkit-app-region: drag;
         pointer-events: none;
       }
-      .app-boot-splash__label {
+      .app-boot-splash__icon {
+        width: 112px;
+        height: 112px;
         opacity: 0;
+        transform: scale(0.96);
         animation: app-boot-splash-in 200ms ease-out forwards;
       }
       @keyframes app-boot-splash-in {
@@ -50,9 +53,10 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .app-boot-splash__label {
+        .app-boot-splash__icon {
           animation: none;
           opacity: 1;
+          transform: none;
         }
       }
     </style>
@@ -60,7 +64,7 @@
   <body>
     <div id="root">
       <div class="app-boot-splash" aria-hidden="true">
-        <span class="app-boot-splash__label">Glass</span>
+        <img class="app-boot-splash__icon" src="/app-icon.png" alt="" draggable="false" />
       </div>
     </div>
     <script type="module" src="/src/bootstrap.ts"></script>

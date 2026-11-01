@@ -14,7 +14,7 @@ export function SplashScreen({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-5 select-none">
-        <span className="text-sm font-medium tracking-wide text-muted-foreground">Glass</span>
+        <img src="/app-icon.png" alt="" aria-hidden="true" className="size-24 object-contain" />
 
         {errorMessage ? (
           <div className="flex max-w-sm flex-col items-center gap-3 px-6 text-center">
