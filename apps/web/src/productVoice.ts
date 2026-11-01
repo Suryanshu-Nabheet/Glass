@@ -13,8 +13,6 @@ export const GLASS_META_DESCRIPTION =
 
 export const GLASS_GITHUB_REPO = "https://github.com/Suryanshu-Nabheet/Glass";
 
-export const GLASS_DOCS_URL = `${GLASS_GITHUB_REPO}/blob/main/README.md`;
-
 export const GLASS_ISSUES_URL = `${GLASS_GITHUB_REPO}/issues/new`;
 
 /** User-facing label for envMode `local` (repo checkout, not a worktree). */

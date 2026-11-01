@@ -420,13 +420,6 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     title: "Version",
     keywords: "Current application version. about",
   },
-  {
-    id: "advanced:release-history",
-    section: "advanced",
-    title: "Release history",
-    keywords:
-      "A running log of every update, newest first. changelog what's new about release notes",
-  },
 ] as const;
 
 const SETTINGS_SECTION_LABEL_BY_ID = new Map<SettingsSectionId, string>(

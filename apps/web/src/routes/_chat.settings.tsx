@@ -26,7 +26,6 @@ import {
   TERMINAL_FONT_FAMILY_SUGGESTIONS,
   useAppSettings,
 } from "../appSettings";
-import { APP_VERSION } from "../branding";
 import { AdvancedSettingsPanel } from "~/components/settings/AdvancedSettingsPanel";
 import { AppIconPicker } from "~/components/settings/AppIconPicker";
 import {
@@ -43,7 +42,6 @@ import {
   ProvidersSettingsPanel,
 } from "~/components/settings/ProvidersSettingsPanel";
 import { ProviderOptionLabel } from "../components/ProviderIcon";
-import ReleaseHistoryDialog from "../components/ReleaseHistoryDialog";
 import { KeyboardShortcutsSettingsPanel } from "../components/settings/KeyboardShortcutsSettingsPanel";
 import { ProfileSettingsPanel } from "../components/settings/ProfileSettingsPanel";
 import { ProviderUsageSettingsPanel } from "../components/settings/ProviderUsageSettingsPanel";
@@ -203,7 +201,6 @@ function SettingsRouteView() {
   } = useTheme();
   const { settings, defaults, updateSettings, resetSettings } = useAppSettings();
   const desktopTopBarTrafficLightGutterClassName = useDesktopTopBarTrafficLightGutterClassName();
-  const [releaseHistoryOpen, setReleaseHistoryOpen] = useState(false);
   const [resetEpoch, setResetEpoch] = useState(0);
   const platform = getNavigatorPlatform();
   const shouldShowFontSmoothing = isMacPlatform(platform);
@@ -1188,7 +1185,6 @@ function SettingsRouteView() {
                 <ExternalMcpSettingsPanel active={activeSection === "integrations"} />
                 <AdvancedSettingsPanel
                   active={activeSection === "advanced"}
-                  onOpenReleaseHistory={() => setReleaseHistoryOpen(true)}
                   resetEpoch={resetEpoch}
                 />
               </div>
@@ -1198,11 +1194,6 @@ function SettingsRouteView() {
         {/* Mounted at the route level (outside the scrollable panel) so the
           dialog portal can overlay the entire settings view without being
           clipped by the content wrapper's overflow. */}
-        <ReleaseHistoryDialog
-          open={releaseHistoryOpen}
-          onOpenChange={setReleaseHistoryOpen}
-          defaultExpandedVersion={APP_VERSION}
-        />
       </RouteInsetSurface>
     </div>
   );
