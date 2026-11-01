@@ -34,6 +34,20 @@ export function isBrowserCopyLinkChord(chord: BrowserShortcutChord, isMac: boole
   return isMac ? chord.meta && !chord.ctrl : chord.ctrl && !chord.meta;
 }
 
+// New-tab shortcut: Cmd+T on macOS, Ctrl+T elsewhere. Ignore repeats so a held
+// key cannot flood the browser manager with tabs.
+export function isBrowserNewTabChord(chord: BrowserShortcutChord, isMac: boolean): boolean {
+  if (
+    chord.key.toLowerCase() !== "t" ||
+    chord.shift ||
+    chord.alt ||
+    chord.repeat
+  ) {
+    return false;
+  }
+  return isMac ? chord.meta && !chord.ctrl : chord.ctrl && !chord.meta;
+}
+
 export function isKeyboardShortcutsHelpChord(
   chord: BrowserShortcutChord,
   platform: KeyboardShortcutPlatform,

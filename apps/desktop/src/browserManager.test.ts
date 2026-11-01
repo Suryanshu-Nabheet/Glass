@@ -584,4 +584,46 @@ describe("DesktopBrowserManager repeated workflow characterization", () => {
     expect(beforeInputEvent).toHaveBeenCalledWith(event, input);
     expect(event.preventDefault).toHaveBeenCalledOnce();
   });
+
+  it("opens a new browser tab for the platform new-tab chord from the guest page", () => {
+    const manager = new DesktopBrowserManager();
+    const initial = manager.open({ threadId: THREAD_ID });
+    const initialTabId = initial.activeTabId;
+    const initialHumanControlEpoch = manager.getAutomationHumanControlEpoch(THREAD_ID);
+    expect(initialTabId).not.toBeNull();
+    if (!initialTabId) return;
+
+    const tabContents = new FakeWebContents();
+    asCharacterizationAccess(manager).configureRuntimeWebContents({
+      key: `thread-1:${initialTabId}`,
+      threadId: THREAD_ID,
+      tabId: initialTabId,
+      webContents: tabContents as unknown as WebContents,
+      view: null,
+      ownsWebContents: false,
+      listenerDisposers: [],
+    });
+    const event = { preventDefault: vi.fn(), defaultPrevented: false };
+    const isMac = process.platform === "darwin";
+    tabContents.emit("before-input-event", event, {
+      type: "keyDown",
+      key: "t",
+      code: "KeyT",
+      isAutoRepeat: false,
+      isComposing: false,
+      shift: false,
+      control: !isMac,
+      alt: false,
+      meta: isMac,
+      location: 0,
+      modifiers: [isMac ? "meta" : "control"],
+    });
+
+    const state = manager.getState({ threadId: THREAD_ID });
+    expect(state.tabs).toHaveLength(2);
+    expect(state.activeTabId).not.toBe(initialTabId);
+    expect(state.activeTabId).toBe(state.tabs.at(-1)?.id);
+    expect(manager.getAutomationHumanControlEpoch(THREAD_ID)).toBe(initialHumanControlEpoch + 1);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+  });
 });

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { isBrowserCopyLinkChord, isKeyboardShortcutsHelpChord } from "./browserShortcuts";
+import {
+  isBrowserCopyLinkChord,
+  isBrowserNewTabChord,
+  isKeyboardShortcutsHelpChord,
+} from "./browserShortcuts";
 
 describe("isBrowserCopyLinkChord", () => {
   it("matches Cmd+Shift+C on macOS only", () => {
@@ -30,6 +34,32 @@ describe("isBrowserCopyLinkChord", () => {
     ).toBe(false);
     expect(
       isBrowserCopyLinkChord({ meta: true, ctrl: false, shift: true, alt: false, key: "v" }, true),
+    ).toBe(false);
+  });
+});
+
+describe("isBrowserNewTabChord", () => {
+  it("matches Cmd+T on macOS and Ctrl+T elsewhere", () => {
+    expect(
+      isBrowserNewTabChord({ meta: true, ctrl: false, shift: false, alt: false, key: "t" }, true),
+    ).toBe(true);
+    expect(
+      isBrowserNewTabChord({ meta: false, ctrl: true, shift: false, alt: false, key: "T" }, false),
+    ).toBe(true);
+  });
+
+  it("rejects the wrong platform modifier, extra modifiers, and key repeats", () => {
+    expect(
+      isBrowserNewTabChord({ meta: true, ctrl: false, shift: false, alt: false, key: "t" }, false),
+    ).toBe(false);
+    expect(
+      isBrowserNewTabChord({ meta: true, ctrl: false, shift: true, alt: false, key: "t" }, true),
+    ).toBe(false);
+    expect(
+      isBrowserNewTabChord(
+        { meta: true, ctrl: false, shift: false, alt: false, key: "t", repeat: true },
+        true,
+      ),
     ).toBe(false);
   });
 });

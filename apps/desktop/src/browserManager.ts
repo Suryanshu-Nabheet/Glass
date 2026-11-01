@@ -35,7 +35,7 @@ import type {
   ThreadBrowserState,
   ThreadId,
 } from "@glass/contracts";
-import { isBrowserCopyLinkChord } from "@glass/shared/browserShortcuts";
+import { isBrowserCopyLinkChord, isBrowserNewTabChord } from "@glass/shared/browserShortcuts";
 import {
   BROWSER_BLANK_URL as ABOUT_BLANK_URL,
   classifyBrowserWindowOpen,
@@ -2532,15 +2532,22 @@ export class DesktopBrowserManager {
       ) {
         return;
       }
+      const chord = {
+        meta: input.meta,
+        ctrl: input.control,
+        shift: input.shift,
+        alt: input.alt,
+        key: input.key,
+        repeat: input.isAutoRepeat,
+      };
+      if (isBrowserNewTabChord(chord, process.platform === "darwin")) {
+        event.preventDefault();
+        this.newTab({ threadId, activate: true });
+        return;
+      }
       this.markHumanControl(threadId);
       const matches = isBrowserCopyLinkChord(
-        {
-          meta: input.meta,
-          ctrl: input.control,
-          shift: input.shift,
-          alt: input.alt,
-          key: input.key,
-        },
+        chord,
         process.platform === "darwin",
       );
       if (!matches) {

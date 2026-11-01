@@ -39,6 +39,7 @@ import {
 import {
   BROWSER_COPY_LINK_TOAST_TITLE,
   isBrowserCopyLinkChord,
+  isBrowserNewTabChord,
 } from "@glass/shared/browserShortcuts";
 
 import { isElectron } from "~/env";
@@ -808,6 +809,13 @@ export function BrowserPanel({
     previousActiveTabIdRef.current = activeTabId;
   }, [activeTab]);
 
+  useEffect(() => {
+    if (!activeTabId) return;
+    browserTabsBarRef.current
+      ?.querySelector<HTMLButtonElement>('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeTabId]);
+
   useLayoutEffect(() => {
     if (!api || !isLiveRuntime || !workspaceReady || !activeTabId) {
       return;
@@ -1460,16 +1468,22 @@ export function BrowserPanel({
       if (event.defaultPrevented) {
         return;
       }
-      const matches = isBrowserCopyLinkChord(
-        {
-          meta: event.metaKey,
-          ctrl: event.ctrlKey,
-          shift: event.shiftKey,
-          alt: event.altKey,
-          key: event.key,
-        },
-        isMacNavigatorPlatform(),
-      );
+      const chord = {
+        meta: event.metaKey,
+        ctrl: event.ctrlKey,
+        shift: event.shiftKey,
+        alt: event.altKey,
+        key: event.key,
+        repeat: event.repeat,
+      };
+      const isMac = isMacNavigatorPlatform();
+      if (isBrowserNewTabChord(chord, isMac)) {
+        event.preventDefault();
+        event.stopPropagation();
+        onCreateTab();
+        return;
+      }
+      const matches = isBrowserCopyLinkChord(chord, isMac);
       if (!matches) {
         return;
       }
@@ -1480,7 +1494,7 @@ export function BrowserPanel({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [copyActiveTabLink, isLiveRuntime]);
+  }, [copyActiveTabLink, isLiveRuntime, onCreateTab]);
 
   // Native page focus path: main already wrote the URL to the clipboard, so just toast.
   useEffect(() => {
@@ -1802,6 +1816,7 @@ export function BrowserPanel({
                   <button
                     type="button"
                     className="min-w-0 flex-1 truncate text-left"
+                    aria-current={isActive ? "page" : undefined}
                     onClick={() => {
                       if (!ensureLiveRuntime()) return;
                       if (!api) return;
@@ -1833,6 +1848,17 @@ export function BrowserPanel({
               );
             })}
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="size-7 shrink-0"
+            aria-label="New browser tab"
+            title="New browser tab"
+            onClick={onCreateTab}
+          >
+            <PlusIcon className="size-3.5" />
+          </Button>
           {browserChromeStatus ? (
             <div
               className={cn(
