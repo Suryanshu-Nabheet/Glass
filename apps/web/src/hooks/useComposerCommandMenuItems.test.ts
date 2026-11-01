@@ -45,7 +45,7 @@ describe("buildThreadMentionComposerItems", () => {
     project("studio", "studio", "Studio workspace"),
   ];
 
-  it("searches titles across project, chat, and studio sections and excludes the current thread", () => {
+  it("searches titles across projects and unified Chats and excludes the current thread", () => {
     const items = buildThreadMentionComposerItems({
       projects,
       currentThreadId: "current",
@@ -72,7 +72,7 @@ describe("buildThreadMentionComposerItems", () => {
     expect(Object.fromEntries(items.map((item) => [item.id, item.description]))).toEqual({
       "thread:chat-thread": "Chats",
       "thread:project-thread": "Glass",
-      "thread:studio-thread": "Studio",
+      "thread:studio-thread": "Chats",
     });
     expect(items.find((item) => item.id === "thread:studio-thread")).toMatchObject({
       provider: "claudeAgent",

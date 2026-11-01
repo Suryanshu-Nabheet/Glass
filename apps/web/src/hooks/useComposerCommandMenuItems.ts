@@ -59,8 +59,7 @@ function threadSuggestionTitle(title: string): string {
 
 function threadSuggestionContainerName(project: Project | undefined): string {
   if (!project) return "Unknown project";
-  if (project.kind === "chat") return "Chats";
-  if (project.kind === "studio") return "Studio";
+  if (project.kind === "chat" || project.kind === "studio") return "Chats";
   return project.name.trim() || project.folderName.trim() || "Untitled project";
 }
 

@@ -3,7 +3,7 @@
 //          whether to create a project — an unhydrated (empty) local store must never be
 //          mistaken for "the container doesn't exist yet".
 // Layer: Web orchestration helper
-// Exports: waitForProjectSnapshotHydration, shared by the chat and Studio container flows.
+// Exports: waitForProjectSnapshotHydration, shared by managed chat-container flows.
 
 import { useStore } from "../store";
 

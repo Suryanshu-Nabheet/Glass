@@ -342,7 +342,7 @@ export type ActivityScopeOption =
 
 /**
  * Scope menu entries: every real project with eligible activity, busiest first.
- * Project-less chats (chat/studio-kind containers) collapse into ONE "Glass"
+ * Project-less chats (current and legacy container kinds) collapse into ONE "Glass"
  * entry instead of one look-alike row per hidden container project.
  */
 export function collectActivityScopeOptions(
