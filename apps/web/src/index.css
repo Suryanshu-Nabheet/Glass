@@ -152,6 +152,23 @@
     transition: box-shadow 300ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
+  /* Continue the sidebar material behind the rounded content corners. Using the same
+     surface and backdrop tokens keeps the exposed crescent in color with the sidebar
+     instead of revealing the dark window shell. The content card covers this strip
+     everywhere except its rounded edge. */
+  .chat-content-shell:has(.chat-content-card)::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 10;
+    width: 18px;
+    pointer-events: none;
+    background: var(--app-sidebar-surface, var(--card));
+    box-shadow: var(--app-sidebar-shadow, none);
+    -webkit-backdrop-filter: var(--app-sidebar-backdrop-filter, none);
+    backdrop-filter: var(--app-sidebar-backdrop-filter, none);
+  }
+
   .dark .chat-content-card {
     --seam-shadow-color: rgba(0, 0, 0, 0.36);
     --seam-line: --alpha(var(--color-white) / 8%);
@@ -159,7 +176,7 @@
 
   [data-sidebar-side="left"] .chat-content-card {
     --seam-shadow-x: -6.5px;
-    border-radius: 0;
+    border-radius: 18px 0 0 18px;
   }
 
   .chat-content-card::before {
@@ -168,7 +185,7 @@
     inset: 0;
     z-index: 1;
     pointer-events: none;
-    border-radius: 0;
+    border-radius: 18px 0 0 18px;
     /* Fade the seam divider with the slide (collapsed rule sets opacity:0) — `display`
        can't transition, so opacity is what keeps this in step with the animation. */
     transition: opacity 300ms cubic-bezier(0.32, 0.72, 0, 1);
@@ -193,11 +210,13 @@
        Chromium snaps box-shadow to/from `none`, but keeping the geometry and only
        driving the color to transparent interpolates cleanly with the slide. */
     --seam-shadow-color: transparent;
+    border-radius: 0;
   }
 
   [data-slot="sidebar-wrapper"]:has(> [data-slot="sidebar"][data-state="collapsed"])
     .chat-content-card::before {
     opacity: 0;
+    border-radius: 0;
   }
 
   /* ─── Chat-surface header hairline (horizontal counterpart of the seam) ───────────

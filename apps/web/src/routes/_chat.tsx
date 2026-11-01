@@ -581,7 +581,7 @@ function ChatRouteLayout() {
   // would have gotten inside <Sidebar> (otherwise dragging to resize stops working).
   // `data-sidebar-side` on the provider selects the seam geometry.
   const mainContentShell = (
-    <div className="relative flex h-svh min-h-0 min-w-0 flex-1">
+    <div className="chat-content-shell relative flex h-svh min-h-0 min-w-0 flex-1">
       {isEditorView ? null : (
         <SidebarInstanceProvider side="left" resizable={THREAD_SIDEBAR_RESIZABLE}>
           <SidebarRail placement="content-seam" />
