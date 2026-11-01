@@ -235,6 +235,11 @@ const DEFAULT_BINDINGS = compile([
     command: "sidebar.toggle",
     whenAst: whenNot(whenIdentifier("terminalFocus")),
   },
+  {
+    shortcut: modShortcut("b", { altKey: true }),
+    command: "rightDock.toggle",
+    whenAst: whenModChordAllowed,
+  },
   // Mirror server defaults: Cmd+K everywhere; Ctrl+K only off macOS.
   { shortcut: modShortcut("k", { metaKey: true, modKey: false }), command: "sidebar.search" },
   {
@@ -1057,6 +1062,10 @@ describe("shortcutLabelForCommand", () => {
       "⌘B",
     );
     assert.strictEqual(
+      shortcutLabelForCommand(DEFAULT_BINDINGS, "rightDock.toggle", "MacIntel"),
+      "⌥⌘B",
+    );
+    assert.strictEqual(
       shortcutLabelForCommand(DEFAULT_BINDINGS, "sidebar.search", "MacIntel"),
       "⌘K",
     );
@@ -1390,6 +1399,25 @@ describe("chat/editor shortcuts", () => {
         platform: "MacIntel",
         context: { terminalFocus: true },
       }),
+    );
+  });
+
+  it("matches Option+Command+B for the right sidebar while keeping Command+B separate", () => {
+    assert.equal(
+      resolveShortcutCommand(
+        event({ key: "b", metaKey: true, altKey: true }),
+        DEFAULT_BINDINGS,
+        { platform: "MacIntel", context: { terminalFocus: false } },
+      ),
+      "rightDock.toggle",
+    );
+    assert.equal(
+      resolveShortcutCommand(
+        event({ key: "b", metaKey: true }),
+        DEFAULT_BINDINGS,
+        { platform: "MacIntel", context: { terminalFocus: false } },
+      ),
+      "sidebar.toggle",
     );
   });
 

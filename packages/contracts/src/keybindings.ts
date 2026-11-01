@@ -9,6 +9,7 @@ export const MAX_KEYBINDINGS_COUNT = 256;
 
 export const STATIC_KEYBINDING_COMMANDS = [
   "sidebar.toggle",
+  "rightDock.toggle",
   "sidebar.search",
   "sidebar.activity",
   "sidebar.addProject",

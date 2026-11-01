@@ -31,6 +31,7 @@ import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import { startFreshChatForActiveSurface } from "../lib/startContainerChat";
 import { isOrdinarySpaceProject } from "../lib/spaces";
 import { isKeyboardShortcutsHelpShortcut, resolveShortcutCommand } from "../keybindings";
+import { selectRightDockState, useRightDockStore } from "../rightDockStore";
 import { useStore } from "../store";
 import { createProjectLastActivityAtSelector } from "../storeSelectors";
 import { useSpacesUiStore } from "../spacesUiStore";
@@ -220,6 +221,10 @@ function ChatRouteGlobalShortcuts() {
     handleNewThread,
     projects,
   } = useHandleNewThread();
+  const rightDockState = useRightDockStore(
+    useMemo(() => selectRightDockState(activeContextThreadId), [activeContextThreadId]),
+  );
+  const setRightDockOpen = useRightDockStore((state) => state.setDockOpen);
   const {
     recentSwitcherState,
     recentViewEntries,
@@ -385,6 +390,14 @@ function ChatRouteGlobalShortcuts() {
         return;
       }
 
+      if (command === "rightDock.toggle") {
+        if (!activeContextThreadId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setRightDockOpen(activeContextThreadId, !rightDockState.open);
+        return;
+      }
+
       if (!command) return;
 
       if (command === "view.recent.next" || command === "view.recent.previous") {
@@ -485,6 +498,7 @@ function ChatRouteGlobalShortcuts() {
       window.removeEventListener("keydown", onWindowKeyDown, { capture: true });
     };
   }, [
+    activeContextThreadId,
     activeDraftThread,
     activeThread,
     cancelRecentSwitcher,
@@ -500,7 +514,9 @@ function ChatRouteGlobalShortcuts() {
     providerStatuses,
     refreshProviderStatuses,
     recentSwitcherState,
+    rightDockState.open,
     selectedThreadIdsSize,
+    setRightDockOpen,
     terminalOpen,
     terminalWorkspaceOpen,
     toggleSidebar,

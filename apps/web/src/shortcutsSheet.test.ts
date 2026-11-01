@@ -133,6 +133,17 @@ describe("buildShortcutSheetSections", () => {
             altKey: false,
           },
         },
+        {
+          command: "rightDock.toggle",
+          shortcut: {
+            key: "b",
+            modKey: true,
+            metaKey: false,
+            ctrlKey: false,
+            shiftKey: false,
+            altKey: true,
+          },
+        },
       ],
       projectScripts: [],
       platform: "Linux",
@@ -144,6 +155,14 @@ describe("buildShortcutSheetSections", () => {
     });
 
     expect(sections[0]?.entries.some((entry) => entry.id === "sidebar.toggle")).toBe(true);
+    expect(
+      sections[0]?.entries.some(
+        (entry) =>
+          entry.id === "rightDock.toggle" &&
+          entry.label === "Toggle right sidebar" &&
+          entry.shortcutLabel === "Ctrl+Alt+B",
+      ),
+    ).toBe(true);
   });
 });
 

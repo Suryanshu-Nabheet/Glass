@@ -258,6 +258,12 @@ const SIDEBAR_TOGGLE_DEFINITION: ShortcutDefinition = {
   description: "Collapse or reveal the sidebar shell.",
 };
 
+const RIGHT_DOCK_TOGGLE_DEFINITION: ShortcutDefinition = {
+  command: "rightDock.toggle",
+  label: "Toggle right sidebar",
+  description: "Show or hide the right sidebar for the active thread.",
+};
+
 export interface EditableShortcutDefinition {
   command: KeybindingCommand;
   label: string;
@@ -269,6 +275,7 @@ export function listEditableShortcutDefinitions(): EditableShortcutDefinition[] 
   const definitionsByCommand = new Map<KeybindingCommand, EditableShortcutDefinition>();
   for (const definition of [
     SIDEBAR_TOGGLE_DEFINITION,
+    RIGHT_DOCK_TOGGLE_DEFINITION,
     ...AVAILABLE_NOW_DEFINITIONS,
     ...WORKSPACE_DEFINITIONS,
     ...THREAD_JUMP_DEFINITIONS,
@@ -300,6 +307,7 @@ function modSlashLabel(platform: string): string {
 /** Human-readable sheet label for a keybinding command, e.g. `chat.new` → "New thread". */
 export function shortcutSheetCommandLabel(command: KeybindingCommand): string | null {
   for (const definitions of [
+    [RIGHT_DOCK_TOGGLE_DEFINITION],
     AVAILABLE_NOW_DEFINITIONS,
     WORKSPACE_DEFINITIONS,
     THREAD_JUMP_DEFINITIONS,
@@ -364,6 +372,12 @@ export function buildShortcutSheetSections(
     },
     ...definitionsToEntries(
       AVAILABLE_NOW_DEFINITIONS,
+      options.keybindings,
+      options.platform,
+      options.context,
+    ),
+    ...definitionsToEntries(
+      [RIGHT_DOCK_TOGGLE_DEFINITION],
       options.keybindings,
       options.platform,
       options.context,

@@ -103,6 +103,19 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
     }),
   );
 
+  it.effect("defaults the right sidebar to Cmd+Option+B", () =>
+    Effect.sync(() => {
+      assert.deepEqual(
+        DEFAULT_KEYBINDINGS.find((rule) => rule.command === "rightDock.toggle"),
+        {
+          key: "mod+alt+b",
+          command: "rightDock.toggle",
+          when: "!terminalFocus || isMac",
+        },
+      );
+    }),
+  );
+
   it.effect("persists both platform variants of the commit-and-push binding", () =>
     Effect.sync(() => {
       assert.deepEqual(
