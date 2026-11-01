@@ -83,6 +83,8 @@ Release artifacts and platform startup checks are documented in the release work
 - `packages/contracts` — shared schemas and protocol types.
 - `packages/shared` — runtime utilities shared across applications.
 - `scripts` — development, verification, packaging, and release tooling.
+- `assets/branding/development` and `assets/branding/production` — development icon overrides and release artwork used by desktop packaging and release builds.
+- `assets/screenshots` — canonical product screenshots referenced by project documentation and identity checks.
 
 The server stores orchestration events in SQLite and projects them into queryable state. Provider runtimes are managed by server adapters; their events flow back into orchestration and then to connected clients.
 

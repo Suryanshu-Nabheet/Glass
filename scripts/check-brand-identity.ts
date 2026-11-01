@@ -48,10 +48,6 @@ const forbiddenPatterns = [
 // explicit visual identity audit instead of silently bypassing this guard.
 const approvedVisualAssetDigests = new Map<string, string>([
   [
-    "assets/prod/readme-screenshot.png",
-    "e439eee7fb7d27e4b294101731c15d71cf8fd84cb0824c5caca3fcd01629e03c",
-  ],
-  [
     "assets/screenshots/demo.png",
     "e439eee7fb7d27e4b294101731c15d71cf8fd84cb0824c5caca3fcd01629e03c",
   ],

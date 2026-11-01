@@ -1,17 +1,19 @@
 export const BRAND_ASSET_PATHS = {
-  productionMacIconPng: "assets/prod/black-macos-1024.png",
-  productionMacLegacyIconPng: "assets/prod/black-macos-legacy-1024.png",
-  productionLinuxIconPng: "assets/prod/black-universal-1024.png",
-  productionWindowsIconIco: "assets/prod/quantum-black-windows.ico",
-  productionWebFaviconIco: "assets/prod/quantum-black-web-favicon.ico",
-  productionWebFavicon16Png: "assets/prod/quantum-black-web-favicon-16x16.png",
-  productionWebFavicon32Png: "assets/prod/quantum-black-web-favicon-32x32.png",
-  productionWebAppleTouchIconPng: "assets/prod/quantum-black-web-apple-touch-180.png",
-  developmentWindowsIconIco: "assets/dev/blueprint-windows.ico",
-  developmentWebFaviconIco: "assets/dev/blueprint-web-favicon.ico",
-  developmentWebFavicon16Png: "assets/dev/blueprint-web-favicon-16x16.png",
-  developmentWebFavicon32Png: "assets/dev/blueprint-web-favicon-32x32.png",
-  developmentWebAppleTouchIconPng: "assets/dev/blueprint-web-apple-touch-180.png",
+  productionMacIconPng: "assets/branding/production/black-macos-1024.png",
+  productionMacLegacyIconPng: "assets/branding/production/black-macos-legacy-1024.png",
+  productionLinuxIconPng: "assets/branding/production/black-universal-1024.png",
+  productionWindowsIconIco: "assets/branding/production/black-windows.ico",
+  productionWebFaviconIco: "assets/branding/production/black-web-favicon.ico",
+  productionWebFavicon16Png: "assets/branding/production/black-web-favicon-16x16.png",
+  productionWebFavicon32Png: "assets/branding/production/black-web-favicon-32x32.png",
+  productionWebAppleTouchIconPng:
+    "assets/branding/production/black-web-apple-touch-180.png",
+  developmentWindowsIconIco: "assets/branding/development/blueprint-windows.ico",
+  developmentWebFaviconIco: "assets/branding/development/blueprint-web-favicon.ico",
+  developmentWebFavicon16Png: "assets/branding/development/blueprint-web-favicon-16x16.png",
+  developmentWebFavicon32Png: "assets/branding/development/blueprint-web-favicon-32x32.png",
+  developmentWebAppleTouchIconPng:
+    "assets/branding/development/blueprint-web-apple-touch-180.png",
 } as const;
 
 export interface IconOverride {
