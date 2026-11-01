@@ -183,14 +183,10 @@ describe("createDesktopPlatformBuildConfig", () => {
     assert.ok(issue?.includes("Build mac/arm64 on macOS"));
   });
 
-  it("keeps separate macOS sources for solid and rounded icons", () => {
+  it("uses one canonical production app mark for desktop platform icons", () => {
     assert.equal(
-      BRAND_ASSET_PATHS.productionMacIconPng,
-      "assets/branding/production/black-macos-1024.png",
-    );
-    assert.equal(
-      BRAND_ASSET_PATHS.productionMacLegacyIconPng,
-      "assets/branding/production/black-macos-legacy-1024.png",
+      BRAND_ASSET_PATHS.productionAppIconPng,
+      "assets/branding/production/black-app-1024.png",
     );
   });
 });

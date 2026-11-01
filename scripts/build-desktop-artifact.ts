@@ -45,20 +45,10 @@ const requireFromScriptsWorkspace = createRequire(new URL("./package.json", impo
 const RepoRoot = Effect.service(Path.Path).pipe(
   Effect.flatMap((path) => path.fromFileUrl(new URL("..", import.meta.url))),
 );
-const ProductionMacIconSource = Effect.zipWith(
+const ProductionAppIconSource = Effect.zipWith(
   RepoRoot,
   Effect.service(Path.Path),
-  (repoRoot, path) => path.join(repoRoot, BRAND_ASSET_PATHS.productionMacIconPng),
-);
-const ProductionMacLegacyIconSource = Effect.zipWith(
-  RepoRoot,
-  Effect.service(Path.Path),
-  (repoRoot, path) => path.join(repoRoot, BRAND_ASSET_PATHS.productionMacLegacyIconPng),
-);
-const ProductionLinuxIconSource = Effect.zipWith(
-  RepoRoot,
-  Effect.service(Path.Path),
-  (repoRoot, path) => path.join(repoRoot, BRAND_ASSET_PATHS.productionLinuxIconPng),
+  (repoRoot, path) => path.join(repoRoot, BRAND_ASSET_PATHS.productionAppIconPng),
 );
 const ProductionWindowsIconSource = Effect.zipWith(
   RepoRoot,
@@ -410,16 +400,10 @@ function stageMacIcons(stageResourcesDir: string, verbose: boolean) {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const modernIconSource = yield* ProductionMacIconSource;
-    if (!(yield* fs.exists(modernIconSource))) {
+    const iconSource = yield* ProductionAppIconSource;
+    if (!(yield* fs.exists(iconSource))) {
       return yield* new BuildScriptError({
-        message: `Production macOS icon source is missing at ${modernIconSource}`,
-      });
-    }
-    const legacyIconSource = yield* ProductionMacLegacyIconSource;
-    if (!(yield* fs.exists(legacyIconSource))) {
-      return yield* new BuildScriptError({
-        message: `Production legacy macOS icon source is missing at ${legacyIconSource}`,
+        message: `Production app icon source is missing at ${iconSource}`,
       });
     }
 
@@ -434,17 +418,17 @@ function stageMacIcons(stageResourcesDir: string, verbose: boolean) {
     yield* runCommand(
       ChildProcess.make({
         ...commandOutputOptions(verbose),
-      })`sips -z 512 512 ${modernIconSource} --out ${iconPngPath}`,
+      })`sips -z 512 512 ${iconSource} --out ${iconPngPath}`,
     );
 
     // The solid ICNS is the bundle icon on every macOS release; Icon Composer glass alters the mark.
     yield* runCommand(
       ChildProcess.make({
         ...commandOutputOptions(verbose),
-      })`sips -z 1024 1024 ${legacyIconSource} --out ${dockIconPngPath}`,
+      })`sips -z 1024 1024 ${iconSource} --out ${dockIconPngPath}`,
     );
 
-    yield* generateMacIconSet(legacyIconSource, iconIcnsPath, tmpRoot, path, verbose);
+    yield* generateMacIconSet(iconSource, iconIcnsPath, tmpRoot, path, verbose);
   });
 }
 
@@ -452,7 +436,7 @@ function stageLinuxIcons(stageResourcesDir: string) {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const iconSource = yield* ProductionLinuxIconSource;
+    const iconSource = yield* ProductionAppIconSource;
     if (!(yield* fs.exists(iconSource))) {
       return yield* new BuildScriptError({
         message: `Production icon source is missing at ${iconSource}`,

@@ -48,7 +48,7 @@ const forbiddenPatterns = [
 const approvedVisualAssetDigests = new Map<string, string>([
   [
     "assets/screenshots/demo.png",
-    "e439eee7fb7d27e4b294101731c15d71cf8fd84cb0824c5caca3fcd01629e03c",
+    "d14769f4acb57041090da7a3419afdd140bd5b1c324e28c4485991524d793d10",
   ],
 ]);
 
