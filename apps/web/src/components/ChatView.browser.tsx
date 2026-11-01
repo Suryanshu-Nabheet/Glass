@@ -5820,7 +5820,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
     }
   });
 
-  it("opens a unified Chats draft from a legacy Studio conversation", async () => {
+  it("coalesces repeated Studio new-chat clicks and stays in Studio after navigation settles", async () => {
     useComposerDraftStore.setState({
       draftThreadsByThreadId: {
         [STUDIO_DRAFT_THREAD_ID]: {
@@ -5841,8 +5841,9 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
-      // Keep another conversation in the snapshot so route recovery can distinguish a valid
-      // legacy Studio draft from an empty or transiently-cleared server snapshot.
+      // Keep one non-Studio server thread in the snapshot. This matches the real failure: Studio
+      // has no persisted chats, while the global missing-thread recovery sees known threads and
+      // immediately redirects a transiently-cleared Studio draft to the home index.
       snapshot: withStudioProject(
         withHomeChatProject(
           createSnapshotForTargetUser({
@@ -5863,24 +5864,24 @@ describe("ChatView timeline estimator parity (full app)", () => {
     });
 
     try {
-      const newChatButton = await waitForElement(
-        () => document.querySelector<HTMLButtonElement>('button[aria-label="Open new chat home"]'),
-        "Unable to find the Chats new-chat action.",
+      const newStudioChatButton = await waitForElement(
+        () => document.querySelector<HTMLButtonElement>('button[aria-label="New studio chat"]'),
+        "Unable to find the Studio new-chat action.",
       );
-      newChatButton.click();
-      newChatButton.click();
+      newStudioChatButton.click();
+      newStudioChatButton.click();
 
       const newThreadPath = await waitForURL(
         mounted.router,
         (path) => UUID_ROUTE_RE.test(path),
-        "A new rootless chat should navigate to a draft UUID.",
+        "A fresh Studio chat should navigate to a new draft UUID.",
       );
       const newThreadId = newThreadPath.slice(1) as ThreadId;
 
       await vi.waitFor(
         () => {
           expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
-            projectId: HOME_PROJECT_ID,
+            projectId: STUDIO_PROJECT_ID,
             entryPoint: "chat",
             envMode: "local",
             branch: null,
@@ -5890,7 +5891,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
           expect(document.querySelector('[data-testid="workspace-picker-trigger"]')).not.toBeNull();
           expect(
             useComposerDraftStore.getState().projectDraftThreadIdByProjectId[HOME_PROJECT_ID],
-          ).toBe(newThreadId);
+          ).toBeUndefined();
           expect(mounted.router.state.location.pathname).toBe(newThreadPath);
         },
         { timeout: 8_000, interval: 16 },
@@ -5908,30 +5909,32 @@ describe("ChatView timeline estimator parity (full app)", () => {
       await vi.waitFor(
         () => {
           expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
-            projectId: PROJECT_ID,
+            projectId: STUDIO_PROJECT_ID,
             envMode: "local",
             branch: null,
             worktreePath: null,
+            workingDirectory: "/repo/project",
           });
         },
         { timeout: 8_000, interval: 16 },
       );
 
-      // A superseded navigation resolves an older navigate() promise before the newer route has
-      // committed. Give route effects time to settle and confirm the selected project owns it.
+      // A superseded navigation resolves the older navigate() promise before the newer route has
+      // committed. Give route effects enough time to expose a late Home redirect, then assert the
+      // stable final state and cleanup of the displaced Studio draft.
       await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
       await vi.waitFor(
         () => {
           const state = useComposerDraftStore.getState();
+          const studioDraftIds = Object.entries(state.draftThreadsByThreadId)
+            .filter(([, draft]) => draft.projectId === STUDIO_PROJECT_ID)
+            .map(([threadId]) => threadId);
           expect(mounted.router.state.status).toBe("idle");
           expect(mounted.router.state.location.pathname).toBe(newThreadPath);
-          expect(state.getDraftThread(STUDIO_DRAFT_THREAD_ID)).not.toBeNull();
-          expect(state.getDraftThread(newThreadId)?.projectId).toBe(PROJECT_ID);
-          expect(state.projectDraftThreadIdByProjectId[STUDIO_PROJECT_ID]).toBe(
-            STUDIO_DRAFT_THREAD_ID,
-          );
+          expect(state.getDraftThread(STUDIO_DRAFT_THREAD_ID)).toBeNull();
+          expect(studioDraftIds).toEqual([newThreadId]);
+          expect(state.projectDraftThreadIdByProjectId[STUDIO_PROJECT_ID]).toBe(newThreadId);
           expect(state.projectDraftThreadIdByProjectId[HOME_PROJECT_ID]).toBeUndefined();
-          expect(state.projectDraftThreadIdByProjectId[PROJECT_ID]).toBe(newThreadId);
         },
         { timeout: 8_000, interval: 16 },
       );

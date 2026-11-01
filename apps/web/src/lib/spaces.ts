@@ -18,7 +18,7 @@ import type { ServerWorkspacePaths } from "~/lib/serverWorkspacePaths";
 import { newCommandId, newSpaceId } from "~/lib/utils";
 
 /**
- * Spaces organize ordinary projects only: managed chat containers are reachable
+ * Spaces organize ordinary projects only: the Chats and Studio containers are reachable
  * from every Space and so belong to none. This is the membership rule the whole feature
  * turns on — the sidebar list, the tab activity dots, the pickers, and the shortcut
  * targets all have to agree on it, so it lives here rather than being spelled out again

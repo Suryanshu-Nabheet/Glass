@@ -15,6 +15,7 @@ import { readSidebarUiState } from "../components/Sidebar.uiState";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useHandleNewChat } from "../hooks/useHandleNewChat";
 import { VOID_SPACE_KEY } from "../lib/spaceGrouping";
+import { collectStudioProjectIds } from "../lib/studioProjects";
 import { resolveSplitViewThreadIds, useSplitViewStore } from "../splitViewStore";
 import { EMPTY_THREAD_IDS, useStore } from "../store";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
@@ -39,15 +40,21 @@ function ChatIndexRouteView() {
   const draftThreadsByThreadId = useComposerDraftStore((state) => state.draftThreadsByThreadId);
   const homeDir = useWorkspacePathsStore((state) => state.homeDir);
   const chatWorkspaceRoot = useWorkspacePathsStore((state) => state.chatWorkspaceRoot);
-  // A Space landing reuses the stored Chats draft instead of minting one; otherwise clicking
-  // through empty Spaces would litter the Chats container with fresh drafts.
+  const studioWorkspaceRoot = useWorkspacePathsStore((state) => state.studioWorkspaceRoot);
+  // A Space landing reuses the stored home-chat draft instead of minting one (same reasoning as
+  // the /studio landing): a fresh draft per visit would litter the Chats container every time
+  // someone clicked through their empty Spaces.
   const createFreshChat = () =>
     landingSpaceKey === undefined ? handleNewChat({ fresh: true }) : handleNewChat();
 
-  const workspacePaths = { homeDir, chatWorkspaceRoot };
+  const workspacePaths = { homeDir, chatWorkspaceRoot, studioWorkspaceRoot };
+  // Home chats restore the last visited route, except Studio threads — those belong to the
+  // /studio surface, and restoring one from "/" would silently switch the user into the Studio
+  // segment. A Studio lastThreadRoute falls through to a fresh home-chat draft instead.
+  const studioProjectIds = collectStudioProjectIds(projects, workspacePaths);
   // Only plain, still-unsent chat drafts qualify as restore targets: a non-"chat" entry point
-  // isn't a Chats draft, and `promotedTo` means the draft already became a real thread, so its
-  // stale id is no longer valid.
+  // isn't a home-chat draft, and `promotedTo` means the draft already became a real thread, so
+  // its stale id is no longer valid (matches the filtering findStudioDraftThreadId applies).
   const draftProjectIdByThreadId = new Map<string, ProjectId>();
   for (const [threadId, draft] of Object.entries(draftThreadsByThreadId)) {
     if (draft.entryPoint === "chat" && draft.promotedTo === undefined) {
@@ -74,6 +81,7 @@ function ChatIndexRouteView() {
       availableSplitViewIds,
       threadIds,
       sidebarThreadSummaryById,
+      studioProjectIds,
       draftProjectIdByThreadId,
       rememberedSplitViewThreadIds: rememberedSplitView
         ? resolveSplitViewThreadIds(rememberedSplitView)
