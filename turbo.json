@@ -1,0 +1,60 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "PORT",
+    "VITE_WS_URL",
+    "VITE_DEV_SERVER_URL",
+    "ELECTRON_RENDERER_PORT",
+    "GLASS_HOME",
+    "GLASS_DESKTOP_WS_URL",
+    "GLASS_BROWSER_HOST_PIPE_PATH",
+    "GLASS_BROWSER_USE_PIPE_PATH",
+    "GLASS_BROWSER_PERF",
+    "GLASS_PROVIDER_RUNTIME_IDLE_STOP_MS",
+    "GLASS_GROK_ACP_DEBUG",
+    "GLASS_WEB_SOURCEMAP",
+    "GLASS_SERVER_SOURCEMAP",
+    "GLASS_DESKTOP_SOURCEMAP",
+    "GLASS_MODE",
+    "GLASS_PORT",
+    "GLASS_NO_BROWSER",
+    "GLASS_AUTH_TOKEN",
+    "GLASS_PUBLIC_URL",
+    "GLASS_ALLOW_INSECURE_REMOTE",
+    "GLASS_LOG_WS_EVENTS",
+    "GLASS_HOST",
+    "GLASS_AUTO_BOOTSTRAP_PROJECT_FROM_CWD",
+    "GLASS_PORT_OFFSET",
+    "GLASS_DEV_INSTANCE"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "dist-electron/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": [],
+      "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": []
+    },
+    "@glass/web#test": {
+      "dependsOn": ["^build", "@glass/server#test"],
+      "cache": false,
+      "outputs": []
+    },
+    "@glass/desktop#test": {
+      "dependsOn": ["^build", "@glass/server#test"],
+      "cache": false,
+      "outputs": []
+    }
+  }
+}

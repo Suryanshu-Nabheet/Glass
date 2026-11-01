@@ -1,0 +1,459 @@
+name: Release desktop
+
+on:
+  push:
+    tags:
+      - "v0.0.1"
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish signed desktop artifacts to GitHub Releases
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.3.12
+  RELEASE_VERSION: "0.0.1"
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      publish_release: ${{ steps.release_mode.outputs.publish_release }}
+      signed_build: ${{ steps.release_mode.outputs.signed_build }}
+      version: ${{ steps.release_mode.outputs.version }}
+      source_commit: ${{ steps.source_provenance.outputs.source_commit }}
+      lockfile_sha256: ${{ steps.source_provenance.outputs.lockfile_sha256 }}
+      source_tag: ${{ steps.source_provenance.outputs.source_tag }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release mode
+        id: release_mode
+        shell: bash
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          AZURE_TRUSTED_SIGNING_SUBJECT_DN: ${{ secrets.AZURE_TRUSTED_SIGNING_SUBJECT_DN }}
+          AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_VERSION}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            PUBLISH="true"
+          else
+            TAG="v${VERSION}"
+            PUBLISH="${{ inputs.publish_release }}"
+          fi
+          if [ "${TAG}" != "v${VERSION}" ]; then
+            echo "Only v${VERSION} releases are supported; got ${TAG}." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" "origin/main"; then
+            echo "Release commit ${GITHUB_SHA} is not on main." >&2
+            exit 1
+          fi
+          SIGNED="true"
+          missing=()
+          for secret in \
+            APPLE_TEAM_ID APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER CSC_LINK CSC_KEY_PASSWORD \
+            AZURE_TRUSTED_SIGNING_SUBJECT_DN AZURE_TRUSTED_SIGNING_PUBLISHER_NAME \
+            AZURE_TRUSTED_SIGNING_ENDPOINT AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME \
+            AZURE_TRUSTED_SIGNING_ACCOUNT_NAME AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID
+          do
+            if [ -z "${!secret:-}" ]; then
+              missing+=("${secret}")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            SIGNED="false"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "publish_release=${PUBLISH}" >> "$GITHUB_OUTPUT"
+          echo "signed_build=${SIGNED}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release source provenance
+        id: source_provenance
+        shell: bash
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.release_mode.outputs.version }}"
+          TAG="v${VERSION}"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            PUBLISH="true"
+            REF_TYPE="${GITHUB_REF_TYPE}"
+            REF_NAME="${GITHUB_REF_NAME}"
+          else
+            PUBLISH="${{ steps.release_mode.outputs.publish_release }}"
+            REF_TYPE="tag"
+            REF_NAME="${TAG}"
+          fi
+          bun run scripts/verify-release-source-provenance.ts \
+            "${VERSION}" \
+            "${TAG}" \
+            "${PUBLISH}" \
+            "${GITHUB_SHA}" \
+            "${REF_TYPE}" \
+            "${REF_NAME}"
+
+      - name: Admit macOS signing for publication
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for secret in \
+            APPLE_TEAM_ID \
+            APPLE_API_KEY \
+            APPLE_API_KEY_ID \
+            APPLE_API_ISSUER \
+            CSC_LINK \
+            CSC_KEY_PASSWORD
+          do
+            if [ -z "${!secret:-}" ]; then
+              missing+=("${secret}")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Publishing macOS artifacts requires every signing and notarization secret." >&2
+            printf 'Missing: %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Admit Windows signing for publication
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for secret in \
+            AZURE_TRUSTED_SIGNING_SUBJECT_DN \
+            AZURE_TRUSTED_SIGNING_PUBLISHER_NAME \
+            AZURE_TRUSTED_SIGNING_ENDPOINT \
+            AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME \
+            AZURE_TRUSTED_SIGNING_ACCOUNT_NAME \
+            AZURE_CLIENT_ID \
+            AZURE_CLIENT_SECRET \
+            AZURE_TENANT_ID
+          do
+            if [ -z "${!secret:-}" ]; then
+              missing+=("${secret}")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Publishing Windows artifacts requires every Azure Trusted Signing secret." >&2
+            printf 'Missing: %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+        env:
+          AZURE_TRUSTED_SIGNING_SUBJECT_DN: ${{ secrets.AZURE_TRUSTED_SIGNING_SUBJECT_DN }}
+          AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+  build:
+    name: Build ${{ matrix.label }}
+    needs: preflight
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      TURBO_CONCURRENCY: 1
+      GLASS_PUBLISH_RELEASE: ${{ needs.preflight.outputs.publish_release }}
+      SOURCE_COMMIT: ${{ needs.preflight.outputs.source_commit }}
+      LOCKFILE_SHA256: ${{ needs.preflight.outputs.lockfile_sha256 }}
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      SOURCE_TAG: ${{ needs.preflight.outputs.source_tag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS Apple Silicon
+            runner: macos-13
+            platform: mac
+            target: dmg
+            arch: arm64
+          - label: macOS Intel
+            runner: macos-13
+            platform: mac
+            target: dmg
+            arch: x64
+          - label: Windows
+            runner: windows-2022
+            platform: win
+            target: nsis
+            arch: x64
+          - label: Linux
+            runner: ubuntu-24.04
+            platform: linux
+            target: AppImage
+            arch: x64
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Build desktop artifact
+        shell: bash
+        env:
+          GLASS_DESKTOP_SIGNED: ${{ needs.preflight.outputs.signed_build }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          AZURE_TRUSTED_SIGNING_SUBJECT_DN: ${{ secrets.AZURE_TRUSTED_SIGNING_SUBJECT_DN }}
+          AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-publish
+          if [ "${GLASS_PUBLISH_RELEASE}" = "true" ]; then
+            SIGNED_FLAG="--signed"
+          fi
+          bun run dist:desktop:artifact -- \
+            --platform "${{ matrix.platform }}" \
+            --target "${{ matrix.target }}" \
+            --arch "${{ matrix.arch }}" \
+            --build-version "${RELEASE_VERSION}" \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-tag "${SOURCE_TAG:-}" \
+            --lockfile-sha256 "$LOCKFILE_SHA256" \
+            --output-dir release-publish \
+            ${SIGNED_FLAG}
+
+      - name: Preserve macOS updater manifest per architecture
+        if: ${{ matrix.platform == 'mac' && matrix.arch == 'x64' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f release-publish/latest-mac.yml ]; then
+            mv release-publish/latest-mac.yml "release-publish/latest-mac-${{ matrix.arch }}.yml"
+          fi
+
+      - name: Verify packaged startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun run scripts/verify-packaged-desktop-startup.ts \
+            --assets-dir release-publish \
+            --platform "${{ matrix.platform }}" \
+            --arch "${{ matrix.arch }}" \
+            --version "${RELEASE_VERSION}" \
+            --timeout-ms 60000
+
+      - name: Write artifact provenance
+        shell: bash
+        env:
+          EXPECTED_WINDOWS_SUBJECT_DN: ${{ secrets.AZURE_TRUSTED_SIGNING_SUBJECT_DN }}
+        run: |
+          set -euo pipefail
+          PUBLICATION="${{ needs.preflight.outputs.signed_build }}"
+          SIGNED="${{ needs.preflight.outputs.signed_build }}"
+          EXTRA_ARGS=()
+          if [ "${SIGNED}" = "true" ] && [ "${{ matrix.platform }}" = "mac" ]; then
+            EXTRA_ARGS+=(--expected-mac-team-id "${{ secrets.APPLE_TEAM_ID }}")
+          fi
+          if [ "${SIGNED}" = "true" ] && [ "${{ matrix.platform }}" = "win" ]; then
+            EXTRA_ARGS+=(--expected-windows-publisher "${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}")
+            EXTRA_ARGS+=(--expected-windows-subject-dn "$EXPECTED_WINDOWS_SUBJECT_DN")
+          fi
+          bun run scripts/write-release-artifact-provenance.ts \
+            --assets-dir release-publish \
+            --platform "${{ matrix.platform }}" \
+            --arch "${{ matrix.arch }}" \
+            --target "${{ matrix.target }}" \
+            --version "${RELEASE_VERSION}" \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-tag "${SOURCE_TAG:-}" \
+            --lockfile-sha256 "$LOCKFILE_SHA256" \
+            --publication "${PUBLICATION}" \
+            --signed "${SIGNED}" \
+            --allow-unsigned-windows-publication false \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release-publish/
+          if-no-files-found: error
+          retention-days: 7
+
+  cli_publish:
+    name: Publish CLI
+    if: ${{ needs.preflight.outputs.publish_release == 'true' && vars.GLASS_PUBLISH_CLI == '1' }}
+    needs: [preflight, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Build CLI package
+        run: |
+          bun run build:contracts
+          bun run scripts/cli.ts build
+
+      - name: Publish CLI to npm
+        run: |
+          bun run scripts/cli.ts publish \
+            --app-version "${{ needs.preflight.outputs.version }}" \
+            --access public \
+            --tag latest \
+            --provenance
+
+  finalize:
+    name: Finalize release metadata
+    if: ${{ needs.preflight.outputs.publish_release == 'true' && vars.GLASS_FINALIZE_RELEASE == '1' }}
+    needs: [preflight, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Mint scoped release token
+        id: release_app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GLASS_RELEASE_APP_ID }}
+          private-key: ${{ secrets.GLASS_RELEASE_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.release_app.outputs.token }}
+
+      - name: Prepare updater feed metadata
+        run: bun run scripts/prepare-release-update-feed.ts release-publish
+
+  release:
+    name: Publish GitHub Release
+    if: ${{ needs.preflight.outputs.publish_release == 'true' }}
+    needs: [preflight, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-publish
+          merge-multiple: true
+
+      - name: Merge macOS updater manifests
+        run: bun run scripts/merge-mac-update-manifests.ts release-publish/latest-mac.yml release-publish/latest-mac-x64.yml
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.preflight.outputs.version }}"
+          TAG="v${VERSION}"
+          NOTES_FILE="$(mktemp)"
+          cat > "${NOTES_FILE}" <<EOF
+          ## Glass v${VERSION}
+
+          Initial public release of Glass by Suryanshu Nabheet.
+
+          ### Downloads
+
+          Desktop installers for macOS (Apple Silicon and Intel), Windows, and Linux are attached to this release.
+
+          ### Verify
+
+          - Source commit: \`${{ needs.preflight.outputs.source_commit }}\`
+          - Lockfile SHA-256: \`${{ needs.preflight.outputs.lockfile_sha256 }}\`
+          EOF
+          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" release-publish/* \
+              --repo "${GITHUB_REPOSITORY}" \
+              --clobber
+            gh release edit "${TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "Glass v${VERSION}" \
+              --notes-file "${NOTES_FILE}" \
+              --latest
+          else
+            gh release create "${TAG}" release-publish/* \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "Glass v${VERSION}" \
+              --notes-file "${NOTES_FILE}" \
+              --latest
+          fi

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist-electron/**"],
+    },
+    "dev": {
+      "dependsOn": ["@glass/server#build"],
+      "persistent": true,
+    },
+    "start": {
+      "dependsOn": ["build", "@glass/web#build", "@glass/server#build"],
+      "cache": false,
+      "persistent": true,
+    },
+    "smoke-test": {
+      "dependsOn": ["build", "@glass/web#build", "@glass/server#build"],
+      "cache": false,
+      "outputs": [],
+    },
+  },
+}
