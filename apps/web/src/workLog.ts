@@ -161,16 +161,20 @@ interface DerivedWorkLogEntry extends WorkLogEntry {
 }
 
 export function isFileChangeWorkLogEntry(
-  workEntry: Pick<WorkLogEntry, "itemType" | "requestKind">,
+  workEntry: Pick<WorkLogEntry, "itemType" | "requestKind" | "toolDetails">,
 ): boolean {
-  return workEntry.requestKind === "file-change" || workEntry.itemType === "file_change";
+  return (
+    workEntry.requestKind === "file-change" ||
+    workEntry.itemType === "file_change" ||
+    workEntry.toolDetails?.kind === "file-change"
+  );
 }
 
 // Composer live chrome should count actual edit work, not bare file-change approvals.
 export function isProviderFileEditWorkLogEntry(
-  workEntry: Pick<WorkLogEntry, "changedFiles" | "itemType" | "requestKind">,
+  workEntry: Pick<WorkLogEntry, "changedFiles" | "itemType" | "requestKind" | "toolDetails">,
 ): boolean {
-  if (workEntry.itemType === "file_change") {
+  if (workEntry.itemType === "file_change" || workEntry.toolDetails?.kind === "file-change") {
     return true;
   }
   return workEntry.requestKind === "file-change" && (workEntry.changedFiles?.length ?? 0) > 0;
@@ -2087,6 +2091,9 @@ function collectChangedFiles(value: unknown, target: string[], seen: Set<string>
   pushChangedFile(target, seen, record.filePath);
   pushChangedFile(target, seen, record.relativePath);
   pushChangedFile(target, seen, record.filename);
+  pushChangedFile(target, seen, record.targetFile);
+  pushChangedFile(target, seen, record.TargetFile);
+  pushChangedFile(target, seen, record.target_file);
   pushChangedFile(target, seen, record.newPath);
   pushChangedFile(target, seen, record.oldPath);
 

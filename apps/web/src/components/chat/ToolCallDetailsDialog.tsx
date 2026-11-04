@@ -7,16 +7,7 @@
 import type { ReactNode } from "react";
 import { createMarkdownCodeFence, formatShellTranscript } from "~/lib/toolCallDetailsFormatting";
 import { cn } from "~/lib/utils";
-import type { TimestampFormat } from "../../appSettings";
 import type { WorkLogToolDetails, WorkLogToolOutputDetails } from "../../lib/toolCallDetails";
-import type { WorkLogLiveActivity } from "../../workLog";
-import {
-  formatLiveActivityElapsed,
-  formatLiveActivityProgress,
-  formatLiveActivityStateLabel,
-  useLiveActivityNow,
-} from "../../lib/liveActivityPresentation";
-import { formatTimestamp } from "../../timestampFormat";
 import ChatMarkdown from "../ChatMarkdown";
 
 const DETAIL_HEADER_CLASS_NAME = "border-b border-border/45 px-3 py-2 text-[10px] font-medium";
@@ -27,14 +18,10 @@ const TOOL_DETAILS_MARKDOWN_CLASS_NAME =
 
 export function ToolCallDetailsContent({
   details,
-  activity,
-  timestampFormat,
 }: {
   details: WorkLogToolDetails | undefined;
-  activity?: WorkLogLiveActivity | undefined;
-  timestampFormat: TimestampFormat;
 }) {
-  if (!details && !activity) {
+  if (!details) {
     return (
       <div className="rounded-lg border border-border/45 bg-background/60 px-3 py-2 text-sm text-muted-foreground">
         No detailed payload was available for this tool call.
@@ -44,10 +31,6 @@ export function ToolCallDetailsContent({
 
   return (
     <>
-      {activity ? (
-        <LiveActivityMetadata activity={activity} timestampFormat={timestampFormat} />
-      ) : null}
-
       {details?.command ? (
         <div className="space-y-2">
           <MarkdownToolCodeBlock language="bash">
@@ -55,6 +38,12 @@ export function ToolCallDetailsContent({
           </MarkdownToolCodeBlock>
           {details.output ? <ToolOutputMetadata output={details.output} /> : null}
         </div>
+      ) : null}
+
+      {details?.input ? (
+        <ToolDetailSection title="Input">
+          <MarkdownToolCodeBlock language="json">{details.input}</MarkdownToolCodeBlock>
+        </ToolDetailSection>
       ) : null}
 
       {details?.files?.length ? (
@@ -118,71 +107,6 @@ export function ToolCallDetailsContent({
 
       {details?.output && !details.command ? <ToolOutputSection output={details.output} /> : null}
     </>
-  );
-}
-
-function formatActivityTimestamp(value: string, timestampFormat: TimestampFormat): string {
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) {
-    return value;
-  }
-  return formatTimestamp(value, timestampFormat);
-}
-
-function LiveActivityMetadata({
-  activity,
-  timestampFormat,
-}: {
-  activity: WorkLogLiveActivity;
-  timestampFormat: TimestampFormat;
-}) {
-  const stateLabel = formatLiveActivityStateLabel(activity.state);
-  const nowMs = useLiveActivityNow(activity);
-  const elapsed = formatLiveActivityElapsed(activity, nowMs);
-  const progress =
-    activity.progress !== undefined ? formatLiveActivityProgress(activity.progress) : null;
-
-  return (
-    <ToolDetailSection title="Activity">
-      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1.5 rounded-lg border border-border/45 bg-background/60 px-3 py-2.5 text-[11px]">
-        <dt className="text-muted-foreground/56">Status</dt>
-        <dd className="text-foreground/84">{stateLabel}</dd>
-        {activity.startedAt ? (
-          <>
-            <dt className="text-muted-foreground/56">Started</dt>
-            <dd className="text-foreground/84">
-              <time dateTime={activity.startedAt} title={activity.startedAt}>
-                {formatActivityTimestamp(activity.startedAt, timestampFormat)}
-              </time>
-            </dd>
-          </>
-        ) : null}
-        <dt className="text-muted-foreground/56">Last activity</dt>
-        <dd className="text-foreground/84">
-          <time dateTime={activity.lastActivityAt} title={activity.lastActivityAt}>
-            {formatActivityTimestamp(activity.lastActivityAt, timestampFormat)}
-          </time>
-        </dd>
-        {elapsed ? (
-          <>
-            <dt className="text-muted-foreground/56">Elapsed</dt>
-            <dd className="tabular-nums text-foreground/84">{elapsed}</dd>
-          </>
-        ) : null}
-        {progress ? (
-          <>
-            <dt className="text-muted-foreground/56">Progress</dt>
-            <dd className="tabular-nums text-foreground/84">{progress}</dd>
-          </>
-        ) : null}
-        {activity.detail ? (
-          <>
-            <dt className="text-muted-foreground/56">Detail</dt>
-            <dd className="break-words text-foreground/84">{activity.detail}</dd>
-          </>
-        ) : null}
-      </dl>
-    </ToolDetailSection>
   );
 }
 
@@ -310,14 +234,16 @@ function DiffCodeBlock({ children }: { children: string }) {
           key={`${index}:${line.slice(0, 24)}`}
           className={cn(
             "block min-w-max whitespace-pre-wrap break-words px-3",
-            line.startsWith("+") && !line.startsWith("+++")
+            line.startsWith("+") && !/^\+\+\+ (?:b\/|\/dev\/null)/.test(line)
               ? "bg-emerald-500/8 text-emerald-100/92"
               : null,
-            line.startsWith("-") && !line.startsWith("---")
+            line.startsWith("-") && !/^--- (?:a\/|\/dev\/null)/.test(line)
               ? "bg-rose-500/8 text-rose-100/92"
               : null,
             line.startsWith("@@") ? "text-sky-200/90" : null,
-            /^(diff --git|index |--- |\+\+\+ )/.test(line) ? "text-muted-foreground/62" : null,
+            /^(diff --git|index |--- (?:a\/|\/dev\/null)|\+\+\+ (?:b\/|\/dev\/null))/.test(line)
+              ? "text-muted-foreground/62"
+              : null,
           )}
         >
           {line.length > 0 ? line : " "}

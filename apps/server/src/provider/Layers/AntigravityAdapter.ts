@@ -90,6 +90,8 @@ type PendingTool = {
   readonly itemId: RuntimeItemId;
   readonly itemType: "command_execution" | "file_change" | "dynamic_tool_call" | "web_search";
   readonly name: string;
+  readonly rawInput?: unknown;
+  readonly rawOutput?: unknown;
 };
 
 type StoredTurn = {
@@ -117,6 +119,7 @@ type AntigravitySessionContext = {
   processedTranscriptPath?: string | undefined;
   processedSteps: Set<number>;
   pendingTools: PendingTool[];
+  toolCallsByStepIndex: Map<number, PendingTool>;
   nextToolSequence: number;
   sawAssistant: boolean;
   interrupted: boolean;
@@ -917,6 +920,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
               name,
             } satisfies PendingTool;
             context.pendingTools.push(pending);
+            context.toolCallsByStepIndex.set(stepIndex, pending);
             offer({
               ...base(context, { itemId }),
               type: "item.started",
@@ -946,7 +950,12 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
                 itemType: pending.itemType,
                 status: failed ? "failed" : "completed",
                 title: pending.name,
-                data: { toolCallId: pending.itemId, toolName: pending.name },
+                data: {
+                  toolCallId: pending.itemId,
+                  toolName: pending.name,
+                  ...(pending.rawInput !== undefined ? { rawInput: pending.rawInput } : {}),
+                  ...(pending.rawOutput !== undefined ? { rawOutput: pending.rawOutput } : {}),
+                },
               },
               raw: raw("tool-lifecycle", {
                 eventName,
@@ -1038,6 +1047,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           processedTranscriptBytes: 0,
           processedSteps: new Set(),
           pendingTools: [],
+          toolCallsByStepIndex: new Map(),
           nextToolSequence: 0,
           sawAssistant: false,
           interrupted: false,
@@ -1158,6 +1168,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         context.processedSteps.clear();
         yield* Effect.promise(() => markExistingTranscriptStepsProcessed(context));
         context.pendingTools = [];
+        context.toolCallsByStepIndex.clear();
         context.nextToolSequence = 0;
         context.sawAssistant = false;
         context.interrupted = false;
@@ -1186,6 +1197,8 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           logFile,
           "--print-timeout",
           PRINT_TIMEOUT,
+          "--output-format",
+          "stream-json",
           "-p",
           providerPrompt,
         ];
@@ -1225,9 +1238,85 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           context.activeTurnId === turnId;
         let stdout = "";
         let stderr = "";
+        let stdoutLineBuffer = "";
+        let streamResponse: string | undefined;
+        const captureCliStreamEvent = (line: string) => {
+          let event: Record<string, unknown>;
+          try {
+            event = JSON.parse(line) as Record<string, unknown>;
+          } catch {
+            return;
+          }
+          if (event.event === "result") {
+            const result = event.result;
+            if (result && typeof result === "object" && !Array.isArray(result)) {
+              const response = (result as Record<string, unknown>).response;
+              if (typeof response === "string" && response.trim()) streamResponse = response;
+            }
+            return;
+          }
+          if (event.event !== "step_update") return;
+          const step = event.step_update;
+          if (!step || typeof step !== "object" || Array.isArray(step)) return;
+          const stepRecord = step as Record<string, unknown>;
+          const stepIndex = stepRecord.step_index;
+          const toolInfo = stepRecord.tool_info;
+          if (
+            typeof stepIndex !== "number" ||
+            !toolInfo ||
+            typeof toolInfo !== "object" ||
+            Array.isArray(toolInfo)
+          ) {
+            return;
+          }
+          const info = toolInfo as Record<string, unknown>;
+          const name = typeof info.name === "string" ? info.name : undefined;
+          const pendingIndex = context.pendingTools.findIndex(
+            (pending) => pending.stepIndex === stepIndex && (!name || pending.name === name),
+          );
+          const pending =
+            (pendingIndex >= 0 ? context.pendingTools[pendingIndex] : undefined) ??
+            context.toolCallsByStepIndex.get(stepIndex);
+          if (!pending || (name && pending.name !== name)) return;
+          const updated = {
+            ...pending,
+            ...(info.parameters !== undefined ? { rawInput: info.parameters } : {}),
+            ...(info.output !== undefined
+              ? {
+                  rawOutput:
+                    typeof info.output === "string" ? { output: info.output } : info.output,
+                }
+              : {}),
+          } satisfies PendingTool;
+          if (pendingIndex >= 0) context.pendingTools[pendingIndex] = updated;
+          context.toolCallsByStepIndex.set(stepIndex, updated);
+          offer({
+            ...base(context, { itemId: pending.itemId }),
+            type: "item.updated",
+            payload: {
+              itemType: pending.itemType,
+              status: pendingIndex >= 0 ? "inProgress" : "completed",
+              title: pending.name,
+              data: {
+                toolCallId: pending.itemId,
+                toolName: pending.name,
+                ...(updated.rawInput !== undefined ? { rawInput: updated.rawInput } : {}),
+                ...(updated.rawOutput !== undefined ? { rawOutput: updated.rawOutput } : {}),
+              },
+            },
+            raw: raw("tool-stream", event),
+          } satisfies ProviderRuntimeEvent);
+        };
         child.stdout.setEncoding("utf8");
         child.stderr.setEncoding("utf8");
-        child.stdout.on("data", (chunk) => (stdout += chunk));
+        child.stdout.on("data", (chunk) => {
+          stdout = appendBoundedOutput(stdout, chunk);
+          const lines = `${stdoutLineBuffer}${String(chunk)}`.split(/\r?\n/g);
+          stdoutLineBuffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (line.trim()) captureCliStreamEvent(line);
+          }
+        });
         child.stderr.on("data", (chunk) => (stderr += chunk));
         const timer = setInterval(() => {
           if (ownsTurn()) void pollHookFile(context);
@@ -1248,6 +1337,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         child.once("close", (code, signal) => {
           clearInterval(timer);
           void (async () => {
+            if (stdoutLineBuffer.trim()) captureCliStreamEvent(stdoutLineBuffer);
             if (!ownsTurn()) {
               releaseTurnGatewayLease(context, gatewaySessionLease);
               await fs.rm(runDir, { recursive: true, force: true }).catch(() => undefined);
@@ -1272,13 +1362,16 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
               await fs.rm(runDir, { recursive: true, force: true }).catch(() => undefined);
               return;
             }
-            if (!context.sawAssistant && stdout.trim()) {
+            const fallbackResponse =
+              streamResponse ??
+              (stdout.trim().startsWith("{") ? undefined : stdout.trim() || undefined);
+            if (!context.sawAssistant && fallbackResponse) {
               emitTextItem(
                 context,
                 {
                   step_index: Number.MAX_SAFE_INTEGER,
                   type: "PRINT_OUTPUT",
-                  content: stdout.trim(),
+                  content: fallbackResponse,
                 },
                 "assistant_message",
                 "assistant_text",

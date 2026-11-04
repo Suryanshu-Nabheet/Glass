@@ -25,6 +25,7 @@ import {
   CheckIcon,
   CircleAlertIcon,
   CircleQuestionIcon,
+  DiffIcon,
   EyeIcon,
   GitHubIcon,
   GlobeIcon,
@@ -148,7 +149,8 @@ function workEntryPreview(workEntry: TimelineWorkEntry): string | null {
   const isFileRelated =
     workEntry.requestKind === "file-read" ||
     workEntry.requestKind === "file-change" ||
-    workEntry.itemType === "file_change";
+    workEntry.itemType === "file_change" ||
+    workEntry.toolDetails?.kind === "file-change";
 
   if (workEntry.itemType === "command_execution" || workEntry.command || workEntry.rawCommand) {
     const command = workEntry.command ?? workEntry.rawCommand;
@@ -238,7 +240,7 @@ function workEntryIcon(workEntry: TimelineWorkEntry): LucideIcon {
   if (workEntry.itemType === "command_execution" || workEntry.command) {
     return commandWorkEntryIcon(workEntry);
   }
-  if (workEntry.itemType === "file_change") {
+  if (workEntry.itemType === "file_change" || workEntry.toolDetails?.kind === "file-change") {
     return PencilIcon;
   }
   if (workEntry.itemType === "web_search") return WebSearchIcon;
@@ -571,9 +573,7 @@ export const TimelineWorkEntryRow = memo(function TimelineWorkEntryRow(props: {
       ? extractFilePathFromDetail(workEntry.detail)
       : null;
   const canOpenReadFile = readFilePath !== null;
-  const canOpenToolDetails =
-    !canOpenAgentActivity &&
-    Boolean(workEntry.toolDetails || (workEntry.liveActivity && !canOpenReadFile));
+  const canOpenToolDetails = !canOpenAgentActivity && Boolean(workEntry.toolDetails);
   const openReadFile = readFilePath
     ? () => openWorkspaceFileReference(opener, readFilePath)
     : undefined;
@@ -610,6 +610,13 @@ export const TimelineWorkEntryRow = memo(function TimelineWorkEntryRow(props: {
             const editedRowChildren = (
               <EditedFileRowContent
                 filePath={changedFilePath}
+                action={
+                  workEntry.toolDetails?.fileOperation === "created"
+                    ? "Created"
+                    : workEntry.toolDetails?.fileOperation === "deleted"
+                      ? "Deleted"
+                      : "Edited"
+                }
                 additions={changedFileStat?.additions}
                 deletions={changedFileStat?.deletions}
                 fontSizePx={rowFontSizePx}
@@ -618,18 +625,30 @@ export const TimelineWorkEntryRow = memo(function TimelineWorkEntryRow(props: {
             );
             if (hasToolDetails || (canOpenToolDetails && !canOpenEditedDiff)) {
               return (
-                <ToolDetailsDisclosure
-                  key={`${workEntry.id}:${changedFilePath}`}
-                  details={workEntry.toolDetails}
-                  activity={workEntry.liveActivity}
-                  compact={compact}
-                  tooltip={<span className="whitespace-pre-wrap">{changedFilePath}</span>}
-                  summaryClassName={editedRowClassName}
-                  dataFileChangeRow
-                  timestampFormat={timestampFormat}
-                >
-                  {editedRowChildren}
-                </ToolDetailsDisclosure>
+                <div key={`${workEntry.id}:${changedFilePath}`} className="flex min-w-0 items-center gap-1">
+                  <ToolDetailsDisclosure
+                    details={workEntry.toolDetails}
+                    compact={compact}
+                    className="min-w-0 flex-1"
+                    tooltip={<span className="whitespace-pre-wrap">{changedFilePath}</span>}
+                    summaryClassName={editedRowClassName}
+                    dataFileChangeRow
+                  >
+                    {editedRowChildren}
+                  </ToolDetailsDisclosure>
+                  {canOpenEditedDiff ? (
+                    <button
+                      type="button"
+                      className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground/58 transition-colors hover:bg-background/70 hover:text-foreground"
+                      title={`Open full diff for ${changedFilePath}`}
+                      aria-label={`Open full diff for ${changedFilePath}`}
+                      onClick={() => onOpenTurnDiff?.(turnId!, changedFilePath)}
+                    >
+                      <DiffIcon className="size-3.5" />
+                      Diff
+                    </button>
+                  ) : null}
+                </div>
               );
             }
             return (
@@ -730,9 +749,7 @@ export const TimelineWorkEntryRow = memo(function TimelineWorkEntryRow(props: {
             return (
               <ToolDetailsDisclosure
                 details={workEntry.toolDetails}
-                activity={workEntry.liveActivity}
                 compact={compact}
-                timestampFormat={timestampFormat}
                 tooltip={toolRowTooltipContent(rawCommand, displayText, displayText)}
               >
                 {rowContentChildren}
@@ -769,6 +786,7 @@ export const TimelineWorkEntryRow = memo(function TimelineWorkEntryRow(props: {
 // (`group/file-row` button or disclosure summary) and pass the diff stat when available.
 export function EditedFileRowContent(props: {
   filePath: string;
+  action?: "Created" | "Deleted" | "Edited";
   additions: number | undefined;
   deletions: number | undefined;
   fontSizePx: number;
@@ -792,7 +810,7 @@ export function EditedFileRowContent(props: {
         className={cn("font-system-ui shrink-0", WORK_ROW_MUTED_HOVER_TONE["file-row"])}
         style={{ fontSize: `${fontSizePx}px` }}
       >
-        Edited
+        {props.action ?? "Edited"}
       </span>
       <span
         className={cn(
@@ -860,11 +878,10 @@ function AgentActivityOpenSurface(props: {
 function ToolDetailsDisclosure(props: {
   children: ReactNode;
   compact: boolean;
+  className?: string | undefined;
   dataFileChangeRow?: boolean | undefined;
   details?: TimelineWorkEntry["toolDetails"] | undefined;
-  activity?: TimelineWorkEntry["liveActivity"] | undefined;
   summaryClassName?: string | undefined;
-  timestampFormat: TimestampFormat;
   tooltip?: ReactNode;
 }) {
   const summaryClassName =
@@ -937,7 +954,7 @@ function ToolDetailsDisclosure(props: {
   );
 
   return (
-    <div className="group/tool-details min-w-0">
+    <div className={cn("group/tool-details min-w-0", props.className)}>
       <ToolRowTooltip content={props.tooltip}>{summaryButton}</ToolRowTooltip>
       {renderDetails ? (
         <DisclosureRegion
@@ -947,8 +964,6 @@ function ToolDetailsDisclosure(props: {
           <div data-tool-details-inline="true">
             <ToolCallDetailsContent
               details={props.details}
-              activity={props.activity}
-              timestampFormat={props.timestampFormat}
             />
           </div>
         </DisclosureRegion>

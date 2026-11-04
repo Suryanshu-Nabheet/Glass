@@ -23,9 +23,11 @@ export interface WorkLogToolEditDetails {
 }
 
 export interface WorkLogToolDetails {
-  kind: "command" | "file-change";
+  kind: "command" | "file-change" | "tool";
   title: string;
+  fileOperation?: "created" | "deleted" | "modified";
   command?: string;
+  input?: string;
   output?: WorkLogToolOutputDetails;
   diff?: string;
   content?: string;
@@ -73,17 +75,55 @@ function firstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
-function firstOutputText(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    if (typeof value !== "string") {
-      continue;
-    }
-    if (value.trim().length === 0) {
-      continue;
-    }
-    return value;
+function patchText(value: unknown, depth = 0): string | undefined {
+  if (depth > 5 || value == null) return undefined;
+  if (typeof value === "string") return value.trim() ? value : undefined;
+  if (Array.isArray(value)) {
+    const lines = value.flatMap((part) => {
+      const text = patchText(part, depth + 1);
+      return text ? [text] : [];
+    });
+    return lines.length ? lines.join("\n") : undefined;
+  }
+  const record = asRecord(value);
+  if (!record) return undefined;
+  for (const key of ["unifiedDiff", "diff", "patch", "patches", "text", "content"]) {
+    const nested = patchText(record[key], depth + 1);
+    if (nested) return nested;
   }
   return undefined;
+}
+
+function firstOutputText(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    const text = readableOutput(value);
+    if (text !== undefined) return text;
+  }
+  return undefined;
+}
+
+// Providers represent results as plain strings, text-block arrays, or nested
+// result objects. Normalize those shapes once so every provider uses the same UI.
+function readableOutput(value: unknown, depth = 0): string | undefined {
+  if (depth > 6 || value == null) return undefined;
+  if (typeof value === "string") return value.trim().length ? value : undefined;
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((entry) => readableOutput(entry, depth + 1))
+      .filter((entry): entry is string => Boolean(entry));
+    return parts.length ? parts.join("\n") : undefined;
+  }
+  const record = asRecord(value);
+  if (!record) return undefined;
+  for (const key of ["text", "content", "output", "stdout", "stderr", "response", "result"]) {
+    const nested = readableOutput(record[key], depth + 1);
+    if (nested) return nested;
+  }
+  try {
+    return JSON.stringify(record, null, 2);
+  } catch {
+    return undefined;
+  }
 }
 
 function asRawOutputRecord(value: unknown): Record<string, unknown> | null {
@@ -178,13 +218,21 @@ function extractToolOutputDetails(input: {
     firstOutputText(
       rawOutput?.output,
       rawOutput?.content,
+      rawOutput?.text,
+      rawOutput?.response,
       data?.output,
       itemResult?.output,
       itemResult?.content,
+      itemResult,
       result?.output,
       result?.content,
+      result,
+      data?.content,
+      data?.structured,
+      data?.error,
       partialResult?.output,
       partialResult?.content,
+      partialResult,
       rawOutputDetails?.output,
     ),
   );
@@ -220,13 +268,16 @@ function extractToolOutputDetails(input: {
 
 function extractUnifiedDiff(payload: Record<string, unknown> | null): string | undefined {
   const data = asRecord(payload?.data);
-  const rawOutput = asRecord(data?.rawOutput);
+  const rawOutput = asRawOutputRecord(data?.rawOutput);
   const rawOutputDetails = asRecord(rawOutput?.details);
   const result = asRecord(data?.result);
   const resultDetails = asRecord(result?.details);
   const item = asRecord(data?.item);
   const itemResult = asRecord(item?.result);
-  return firstString(
+  const input = asRecord(data?.input);
+  const rawInput = asRecord(data?.rawInput) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
+  const itemInput = asRecord(item?.input) ?? asRecord(item?.args) ?? asRecord(item?.arguments);
+  return [
     data?.unifiedDiff,
     data?.diff,
     data?.patch,
@@ -245,21 +296,77 @@ function extractUnifiedDiff(payload: Record<string, unknown> | null): string | u
     itemResult?.unifiedDiff,
     itemResult?.diff,
     itemResult?.patch,
-  );
+    input?.unifiedDiff,
+    input?.diff,
+    input?.patch,
+    rawInput?.unifiedDiff,
+    rawInput?.diff,
+    rawInput?.patch,
+    itemInput?.unifiedDiff,
+    itemInput?.diff,
+    itemInput?.patch,
+    rawOutput?.output,
+    rawOutput?.content,
+    result?.content,
+    itemResult?.content,
+  ]
+    .map((candidate) => patchText(candidate))
+    .find((candidate) => candidate !== undefined && /^(diff --git |--- |\+\+\+ |@@)/m.test(candidate));
 }
 
 function extractWriteContent(payload: Record<string, unknown> | null): string | undefined {
   const data = asRecord(payload?.data);
   const input = asRecord(data?.input);
-  const rawInput = asRecord(data?.rawInput);
+  const rawInput =
+    asRecord(data?.rawInput) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
   const item = asRecord(data?.item);
-  const itemInput = asRecord(item?.input);
+  const itemInput = asRecord(item?.input) ?? asRecord(item?.args) ?? asRecord(item?.arguments);
+  const result = asRecord(data?.result);
+  const rawOutput = asRecord(data?.rawOutput);
   return firstString(
     data?.content,
     input?.content,
+    input?.CodeContent,
+    input?.code_content,
+    input?.TargetContent,
+    input?.newContent,
+    input?.new_content,
+    input?.replacementContent,
+    input?.ReplacementContent,
     rawInput?.content,
+    rawInput?.CodeContent,
+    rawInput?.code_content,
+    rawInput?.TargetContent,
+    rawInput?.newContent,
+    rawInput?.new_content,
+    rawInput?.replacementContent,
+    rawInput?.ReplacementContent,
     item?.content,
     itemInput?.content,
+    itemInput?.CodeContent,
+    itemInput?.code_content,
+    result?.content,
+    rawOutput?.content,
+  );
+}
+
+function extractDeletedContent(payload: Record<string, unknown> | null): string | undefined {
+  const data = asRecord(payload?.data);
+  const item = asRecord(data?.item);
+  const input =
+    asRecord(data?.input) ??
+    asRecord(data?.rawInput) ??
+    asRecord(data?.args) ??
+    asRecord(data?.arguments) ??
+    asRecord(item?.input);
+  return firstString(
+    data?.oldContent,
+    data?.old_content,
+    input?.oldContent,
+    input?.old_content,
+    input?.TargetContent,
+    input?.content,
+    item?.oldContent,
   );
 }
 
@@ -274,6 +381,9 @@ function extractEditPath(record: Record<string, unknown>): string | undefined {
     record.file_path,
     record.filename,
     record.file,
+    record.targetFile,
+    record.TargetFile,
+    record.target_file,
     record.relativePath,
   );
 }
@@ -285,10 +395,29 @@ function normalizeEditEntry(value: unknown): WorkLogToolEditDetails | undefined 
   }
   const path = extractEditPath(record);
   const oldText = editText(
-    record.oldText ?? record.old_string ?? record.oldString ?? record.before ?? record.original,
+    record.oldText ??
+      record.old_string ??
+      record.oldString ??
+      record.oldContent ??
+      record.old_content ??
+      record.TargetContent ??
+      record.targetContent ??
+      record.before ??
+      record.original,
   );
   const newText = editText(
-    record.newText ?? record.new_string ?? record.newString ?? record.after ?? record.replacement,
+    record.newText ??
+      record.new_string ??
+      record.newString ??
+      record.newContent ??
+      record.new_content ??
+      record.ReplacementContent ??
+      record.replacementContent ??
+      record.CodeContent ??
+      record.code_content ??
+      record.after ??
+      record.replacement ??
+      record.content,
   );
   if (oldText === undefined && newText === undefined) {
     return undefined;
@@ -332,19 +461,170 @@ function dedupeEditEntries(edits: ReadonlyArray<WorkLogToolEditDetails>): WorkLo
 
 function extractEditEntries(payload: Record<string, unknown> | null): WorkLogToolEditDetails[] {
   const data = asRecord(payload?.data);
-  const input = asRecord(data?.input);
-  const rawInput = asRecord(data?.rawInput);
+  const input = asRecord(data?.input) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
+  const rawInput =
+    asRecord(data?.rawInput) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
   const item = asRecord(data?.item);
-  const itemInput = asRecord(item?.input);
+  const itemInput = asRecord(item?.input) ?? asRecord(item?.args) ?? asRecord(item?.arguments);
+  const result = asRecord(data?.result);
+  const rawOutput = asRecord(data?.rawOutput);
   const edits: WorkLogToolEditDetails[] = [];
   collectEditEntries(data?.edits, edits);
   collectEditEntries(input?.edits, edits);
   collectEditEntries(rawInput?.edits, edits);
   collectEditEntries(item?.edits, edits);
   collectEditEntries(itemInput?.edits, edits);
+  collectEditEntries(result?.edits, edits);
+  collectEditEntries(rawOutput?.edits, edits);
   collectEditEntries(rawInput, edits);
   collectEditEntries(input, edits);
   return dedupeEditEntries(edits);
+}
+
+type FileChangeOperation = "created" | "deleted" | "modified";
+
+function fileChangeOperation(
+  payload: Record<string, unknown> | null,
+  fallbackToolName?: string,
+): FileChangeOperation | undefined {
+  const data = asRecord(payload?.data);
+  const item = asRecord(data?.item);
+  const input =
+    asRecord(data?.input) ??
+    asRecord(data?.rawInput) ??
+    asRecord(data?.args) ??
+    asRecord(data?.arguments) ??
+    asRecord(item?.input) ??
+    asRecord(item?.args);
+  const explicit = firstString(
+    data?.operation,
+    data?.changeType,
+    data?.change_type,
+    data?.kind,
+    item?.operation,
+    item?.changeType,
+    input?.operation,
+    input?.changeType,
+    input?.change_type,
+  )?.toLowerCase();
+  if (
+    data?.deleted === true ||
+    data?.isDeleted === true ||
+    input?.deleted === true ||
+    input?.isDeleted === true ||
+    (explicit && /delete|remove|unlink/.test(explicit))
+  ) {
+    return "deleted";
+  }
+  if (
+    data?.created === true ||
+    data?.isNewFile === true ||
+    input?.created === true ||
+    input?.isNewFile === true ||
+    (explicit && /create|new file|add file/.test(explicit))
+  ) {
+    return "created";
+  }
+  if (explicit && /^(?:edit|write|replace|patch|file[-_]change)$/.test(explicit)) {
+    return "modified";
+  }
+  const toolName = firstString(
+    data?.toolName,
+    data?.name,
+    data?.tool,
+    data?.title,
+    item?.title,
+    data?.kind,
+  )?.toLowerCase() ?? fallbackToolName?.toLowerCase();
+  if (toolName && /(?:create|new)[_ -]*file/.test(toolName)) return "created";
+  if (toolName && /(?:delete|remove|unlink)[_ -]*file/.test(toolName)) return "deleted";
+  if (toolName && /^(delete|remove|rm)$/.test(toolName)) return "deleted";
+  if (toolName && /(?:write.*file|edit[_ -]*file|replace.*file|patch[_ -]*file)/.test(toolName)) {
+    return "modified";
+  }
+  return undefined;
+}
+
+function synthesizeFileDiff(input: {
+  payload: Record<string, unknown> | null;
+  edits: ReadonlyArray<WorkLogToolEditDetails>;
+  content?: string | undefined;
+  deletedContent?: string | undefined;
+  operation?: FileChangeOperation | undefined;
+  files?: ReadonlyArray<string> | undefined;
+}): string | undefined {
+  const operation = input.operation ?? fileChangeOperation(input.payload);
+  const data = asRecord(input.payload?.data);
+  const dataInput =
+    asRecord(data?.rawInput) ??
+    asRecord(data?.input) ??
+    asRecord(data?.args) ??
+    asRecord(data?.arguments);
+  const fallbackPath =
+    input.files?.[0] ??
+    firstString(
+      dataInput?.filePath,
+      dataInput?.file_path,
+      dataInput?.TargetFile,
+      dataInput?.targetFile,
+      dataInput?.target_file,
+      dataInput?.path,
+      dataInput?.filename,
+    );
+  const hunks = input.edits.flatMap((edit) => {
+    if (edit.oldText === undefined && edit.newText === undefined) return [];
+    const filePath = edit.path ?? fallbackPath ?? "unknown";
+    const fromPath =
+      edit.oldText === undefined || operation === "created" ? "/dev/null" : `a/${filePath}`;
+    const toPath =
+      edit.newText === undefined || operation === "deleted" ? "/dev/null" : `b/${filePath}`;
+    return [
+      `diff --git a/${filePath} b/${filePath}`,
+      ...(fromPath === "/dev/null" ? ["new file mode 100644"] : []),
+      ...(toPath === "/dev/null" ? ["deleted file mode 100644"] : []),
+      `--- ${fromPath}`,
+      `+++ ${toPath}`,
+      "@@",
+      ...(edit.oldText !== undefined && fromPath !== "/dev/null"
+        ? edit.oldText.split("\n").map((line) => `-${line}`)
+        : []),
+      ...(edit.newText !== undefined && toPath !== "/dev/null"
+        ? edit.newText.split("\n").map((line) => `+${line}`)
+        : []),
+    ].join("\n");
+  });
+  if (hunks.length) return hunks.join("\n");
+
+  if (operation === "created" && input.content !== undefined) {
+    const filePath = fallbackPath ?? "new file";
+    return [
+      `diff --git a/${filePath} b/${filePath}`,
+      "new file mode 100644",
+      "--- /dev/null",
+      `+++ b/${filePath}`,
+      "@@",
+      ...input.content.split("\n").map((line) => `+${line}`),
+    ].join("\n");
+  }
+  if (operation === "deleted" && fallbackPath && input.deletedContent !== undefined) {
+    return [
+      `diff --git a/${fallbackPath} b/${fallbackPath}`,
+      "deleted file mode 100644",
+      `--- a/${fallbackPath}`,
+      "+++ /dev/null",
+      "@@",
+      ...input.deletedContent.split("\n").map((line) => `-${line}`),
+    ].join("\n");
+  }
+  if (operation === "deleted" && fallbackPath) {
+    return [
+      `diff --git a/${fallbackPath} b/${fallbackPath}`,
+      "deleted file mode 100644",
+      `--- a/${fallbackPath}`,
+      "+++ /dev/null",
+    ].join("\n");
+  }
+  return undefined;
 }
 
 function detailsTitle(input: DeriveWorkLogToolDetailsInput): string {
@@ -360,49 +640,135 @@ function shouldBuildCommandDetails(input: DeriveWorkLogToolDetailsInput): boolea
 }
 
 function shouldBuildFileChangeDetails(input: DeriveWorkLogToolDetailsInput): boolean {
-  return input.requestKind === "file-change" || input.itemType === "file_change";
+  return (
+    input.requestKind === "file-change" ||
+    input.itemType === "file_change" ||
+    fileChangeOperation(input.payload, input.toolTitle ?? input.label) !== undefined
+  );
+}
+
+function extractToolInput(payload: Record<string, unknown> | null): string | undefined {
+  const data = asRecord(payload?.data);
+  const input =
+    asRecord(data?.rawInput) ??
+    asRecord(data?.parameters) ??
+    asRecord(data?.input) ??
+    asRecord(data?.args) ??
+    asRecord(data?.arguments) ??
+    asRecord(asRecord(data?.item)?.input) ??
+    asRecord(asRecord(data?.item)?.args);
+  if (!input || Object.keys(input).length === 0) return undefined;
+  try {
+    return JSON.stringify(input, null, 2);
+  } catch {
+    return undefined;
+  }
+}
+
+function hasNonPathToolInput(payload: Record<string, unknown> | null): boolean {
+  const data = asRecord(payload?.data);
+  const item = asRecord(data?.item);
+  const input =
+    asRecord(data?.rawInput) ??
+    asRecord(data?.parameters) ??
+    asRecord(data?.input) ??
+    asRecord(data?.args) ??
+    asRecord(data?.arguments) ??
+    asRecord(item?.input) ??
+    asRecord(item?.args);
+  if (!input) return false;
+  const pathKeys = new Set([
+    "path",
+    "file",
+    "filePath",
+    "file_path",
+    "filename",
+    "TargetFile",
+    "targetFile",
+    "target_file",
+    "relativePath",
+  ]);
+  return Object.keys(input).some((key) => !pathKeys.has(key));
 }
 
 export function deriveWorkLogToolDetails(
   input: DeriveWorkLogToolDetailsInput,
 ): WorkLogToolDetails | undefined {
   const command = input.rawCommand ?? input.command;
+  const toolInput = extractToolInput(input.payload);
   if (shouldBuildCommandDetails(input)) {
     const output = extractToolOutputDetails({
       payload: input.payload,
       detail: input.detail,
       command,
     });
-    if (!command && !output) {
+    if (!command && !output && !toolInput) {
       return undefined;
     }
     return {
       kind: "command",
       title: detailsTitle(input),
       ...(command ? { command } : {}),
+      ...(toolInput ? { input: toolInput } : {}),
       ...(output ? { output } : {}),
     };
   }
 
   if (!shouldBuildFileChangeDetails(input)) {
-    return undefined;
+    const hasToolLifecycleType =
+      input.itemType === "dynamic_tool_call" ||
+      input.itemType === "mcp_tool_call" ||
+      input.itemType === "web_search" ||
+      input.itemType === "image_view" ||
+      input.itemType === "image_generation";
+    if (!hasToolLifecycleType) return undefined;
+    const output = extractToolOutputDetails({
+      payload: input.payload,
+      detail: input.detail,
+      command: undefined,
+    });
+    if (!toolInput && !output) return undefined;
+    return {
+      kind: "tool",
+      title: detailsTitle(input),
+      ...(toolInput ? { input: toolInput } : {}),
+      ...(output ? { output } : {}),
+    };
   }
-  const diff = extractUnifiedDiff(input.payload);
+  const rawDiff = extractUnifiedDiff(input.payload);
   const content = extractWriteContent(input.payload);
   const edits = extractEditEntries(input.payload);
+  const operation = fileChangeOperation(input.payload, input.toolTitle ?? input.label);
+  const deletedContent = extractDeletedContent(input.payload);
   const output = extractToolOutputDetails({
     payload: input.payload,
     command: undefined,
   });
+  const fileInput = toolInput;
+  const hasAdditionalInput = hasNonPathToolInput(input.payload);
   const files = input.changedFiles?.length ? input.changedFiles : undefined;
-  if (!diff && !content && edits.length === 0 && !output) {
+  const diff =
+    rawDiff ??
+    synthesizeFileDiff({
+      payload: input.payload,
+      edits,
+      content,
+      deletedContent,
+      operation,
+      files,
+    });
+  if (!diff && !content && edits.length === 0 && !output && !hasAdditionalInput) {
     return undefined;
   }
   return {
     kind: "file-change",
     title: detailsTitle(input),
+    ...(operation ? { fileOperation: operation } : {}),
     ...(diff ? { diff } : {}),
-    ...(content ? { content } : {}),
+    ...(content && !diff ? { content } : {}),
+    ...(fileInput && !diff && !content && edits.length === 0 && hasAdditionalInput
+      ? { input: fileInput }
+      : {}),
     ...(edits.length > 0 ? { edits } : {}),
     ...(files ? { files } : {}),
     ...(output ? { output } : {}),
@@ -446,7 +812,11 @@ export function mergeWorkLogToolDetails(
   return {
     kind: right.kind,
     title: right.title || left.title,
+    ...((right.fileOperation ?? left.fileOperation)
+      ? { fileOperation: right.fileOperation ?? left.fileOperation }
+      : {}),
     ...((right.command ?? left.command) ? { command: right.command ?? left.command } : {}),
+    ...((right.input ?? left.input) ? { input: right.input ?? left.input } : {}),
     ...(output ? { output } : {}),
     ...((right.diff ?? left.diff) ? { diff: right.diff ?? left.diff } : {}),
     ...((right.content ?? left.content) ? { content: right.content ?? left.content } : {}),
