@@ -66,8 +66,8 @@ describe("buildThreadMentionComposerItems", () => {
 
     expect(items.map((item) => item.id).toSorted()).toEqual([
       "thread:chat-thread",
-      "thread:project-thread",
       "thread:design-thread",
+      "thread:project-thread",
     ]);
     expect(Object.fromEntries(items.map((item) => [item.id, item.description]))).toEqual({
       "thread:chat-thread": "Chats",

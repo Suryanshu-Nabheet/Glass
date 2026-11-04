@@ -311,14 +311,15 @@ function extractUnifiedDiff(payload: Record<string, unknown> | null): string | u
     itemResult?.content,
   ]
     .map((candidate) => patchText(candidate))
-    .find((candidate) => candidate !== undefined && /^(diff --git |--- |\+\+\+ |@@)/m.test(candidate));
+    .find(
+      (candidate) => candidate !== undefined && /^(diff --git |--- |\+\+\+ |@@)/m.test(candidate),
+    );
 }
 
 function extractWriteContent(payload: Record<string, unknown> | null): string | undefined {
   const data = asRecord(payload?.data);
   const input = asRecord(data?.input);
-  const rawInput =
-    asRecord(data?.rawInput) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
+  const rawInput = asRecord(data?.rawInput) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
   const item = asRecord(data?.item);
   const itemInput = asRecord(item?.input) ?? asRecord(item?.args) ?? asRecord(item?.arguments);
   const result = asRecord(data?.result);
@@ -462,8 +463,7 @@ function dedupeEditEntries(edits: ReadonlyArray<WorkLogToolEditDetails>): WorkLo
 function extractEditEntries(payload: Record<string, unknown> | null): WorkLogToolEditDetails[] {
   const data = asRecord(payload?.data);
   const input = asRecord(data?.input) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
-  const rawInput =
-    asRecord(data?.rawInput) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
+  const rawInput = asRecord(data?.rawInput) ?? asRecord(data?.args) ?? asRecord(data?.arguments);
   const item = asRecord(data?.item);
   const itemInput = asRecord(item?.input) ?? asRecord(item?.args) ?? asRecord(item?.arguments);
   const result = asRecord(data?.result);
@@ -528,14 +528,15 @@ function fileChangeOperation(
   if (explicit && /^(?:edit|write|replace|patch|file[-_]change)$/.test(explicit)) {
     return "modified";
   }
-  const toolName = firstString(
-    data?.toolName,
-    data?.name,
-    data?.tool,
-    data?.title,
-    item?.title,
-    data?.kind,
-  )?.toLowerCase() ?? fallbackToolName?.toLowerCase();
+  const toolName =
+    firstString(
+      data?.toolName,
+      data?.name,
+      data?.tool,
+      data?.title,
+      item?.title,
+      data?.kind,
+    )?.toLowerCase() ?? fallbackToolName?.toLowerCase();
   if (toolName && /(?:create|new)[_ -]*file/.test(toolName)) return "created";
   if (toolName && /(?:delete|remove|unlink)[_ -]*file/.test(toolName)) return "deleted";
   if (toolName && /^(delete|remove|rm)$/.test(toolName)) return "deleted";

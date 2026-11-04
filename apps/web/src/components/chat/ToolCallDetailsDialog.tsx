@@ -16,11 +16,7 @@ const DETAIL_CODE_BLOCK_CLASS_NAME =
 const TOOL_DETAILS_MARKDOWN_CLASS_NAME =
   "text-[length:var(--app-font-size-ui,12px)] leading-relaxed";
 
-export function ToolCallDetailsContent({
-  details,
-}: {
-  details: WorkLogToolDetails | undefined;
-}) {
+export function ToolCallDetailsContent({ details }: { details: WorkLogToolDetails | undefined }) {
   if (!details) {
     return (
       <div className="rounded-lg border border-border/45 bg-background/60 px-3 py-2 text-sm text-muted-foreground">

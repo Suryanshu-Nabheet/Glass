@@ -625,7 +625,10 @@ export const TimelineWorkEntryRow = memo(function TimelineWorkEntryRow(props: {
             );
             if (hasToolDetails || (canOpenToolDetails && !canOpenEditedDiff)) {
               return (
-                <div key={`${workEntry.id}:${changedFilePath}`} className="flex min-w-0 items-center gap-1">
+                <div
+                  key={`${workEntry.id}:${changedFilePath}`}
+                  className="flex min-w-0 items-center gap-1"
+                >
                   <ToolDetailsDisclosure
                     details={workEntry.toolDetails}
                     compact={compact}
@@ -962,9 +965,7 @@ function ToolDetailsDisclosure(props: {
           contentClassName={cn("min-w-0 pt-2", props.compact ? "ml-5" : "ml-7")}
         >
           <div data-tool-details-inline="true">
-            <ToolCallDetailsContent
-              details={props.details}
-            />
+            <ToolCallDetailsContent details={props.details} />
           </div>
         </DisclosureRegion>
       ) : null}

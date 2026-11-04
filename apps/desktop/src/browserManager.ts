@@ -2546,10 +2546,7 @@ export class DesktopBrowserManager {
         return;
       }
       this.markHumanControl(threadId);
-      const matches = isBrowserCopyLinkChord(
-        chord,
-        process.platform === "darwin",
-      );
+      const matches = isBrowserCopyLinkChord(chord, process.platform === "darwin");
       if (!matches) {
         return;
       }
