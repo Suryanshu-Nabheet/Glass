@@ -169,25 +169,13 @@ const makeCheckpointStore = Effect.gen(function* () {
               });
             }
             if (workingIndexInfo !== null) {
-              // A copied index can describe a rapid same-size rewrite as clean
-              // when its cached stat tuple still matches. Really-refresh makes
-              // Git verify those racily-clean entries and leaves changed paths
-              // for the following add to hash, without discarding the cache for
-              // the rest of a large workspace.
-              yield* git.execute({
-                operation,
-                cwd: input.cwd,
-                args: ["update-index", "--really-refresh"],
-                env: commitEnv,
-                allowNonZeroExit: true,
-              });
-
-              // Copying or refreshing the temporary index advances its file
-              // timestamp. Git uses that timestamp to decide whether an entry
-              // whose cached stat tuple still matches is "racily clean" and
-              // needs hashing. Restore the working index's original timestamp
-              // so rapid same-size rewrites remain newer than (or equal to) the
-              // index snapshot and `git add` verifies their contents.
+              // Keep the cached stat tuple from the real index intact until
+              // `git add` compares it with the worktree. `update-index
+              // --really-refresh` here can stamp a changed file as current
+              // without changing its cached blob id, causing the following
+              // `git add` to keep the old contents for rapid same-size edits.
+              // Restore the index timestamp copied from the real index so Git's
+              // racily-clean check also verifies entries at the timestamp edge.
               if (workingIndexInfo.mtime !== undefined) {
                 yield* fs.utimes(
                   tempIndexPath,

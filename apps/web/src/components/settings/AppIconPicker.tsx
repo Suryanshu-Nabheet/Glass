@@ -3,7 +3,7 @@
 // Layer: Settings UI component
 
 import type { DesktopAppIcon } from "@glass/contracts";
-import { cn, isMacPlatform } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 
 interface AppIconOption {
   readonly label: string;

@@ -73,32 +73,6 @@ function writeFakeLinuxDesktopIcon(input: {
   fs.writeFileSync(path.join(iconsDir, `${input.iconName}.png`), input.bytes);
 }
 
-function writeFakeWindowsStorePackageIcon(input: {
-  readonly programFilesDir: string;
-  readonly packageDirName: string;
-  readonly iconFileName: string;
-  readonly bytes: Uint8Array;
-}): void {
-  const assetsDir = path.join(input.programFilesDir, "WindowsApps", input.packageDirName, "Assets");
-  fs.mkdirSync(assetsDir, { recursive: true });
-  fs.writeFileSync(path.join(assetsDir, input.iconFileName), input.bytes);
-}
-
-function shellSingleQuote(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function writeFakePowerShellAppxRegistration(input: {
-  readonly binDir: string;
-  readonly installLocation: string;
-}): void {
-  fs.mkdirSync(input.binDir, { recursive: true });
-  const script = `#!/bin/sh\nprintf '%s\\n' ${shellSingleQuote(input.installLocation)}\n`;
-  const scriptPath = path.join(input.binDir, "powershell.exe");
-  fs.writeFileSync(scriptPath, script);
-  fs.chmodSync(scriptPath, 0o755);
-}
-
 describe("resolveCachedEditorIcon", () => {
   it("copies a macOS app PNG icon into the cache for Glass", async () => {
     const homeDir = makeTempDir("glass-editor-icon-home-");

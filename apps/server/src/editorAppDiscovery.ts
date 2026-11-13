@@ -3,17 +3,13 @@
 //          duplicating platform-specific search rules across launch and icons.
 // Layer: Server runtime utility
 // Exports: app/package search helpers used by open.ts and editorAppIcons.ts
-// Depends on: EDITORS metadata plus filesystem stat checks.
+// Depends on: filesystem stat checks and editor package metadata types.
 
 import { execFileSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  EDITORS,
-  type EditorDefinition,
-  type WindowsStorePackageDefinition,
-} from "@glass/contracts";
+import { type EditorDefinition, type WindowsStorePackageDefinition } from "@glass/contracts";
 
 export type { EditorDefinition, WindowsStorePackageDefinition };
 

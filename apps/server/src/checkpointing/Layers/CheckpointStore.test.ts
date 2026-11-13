@@ -94,7 +94,7 @@ describe("CheckpointStoreLive", () => {
     );
   });
 
-  it("seeds a capture from the working index so Git can reuse its stat cache", async () => {
+  it("seeds a capture from the working index without refreshing cached file stats", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "glass-checkpoint-index-test-"));
     const workingIndexPath = join(tempDir, "index");
     writeFileSync(workingIndexPath, "working-index-stat-cache");
@@ -107,12 +107,6 @@ describe("CheckpointStoreLive", () => {
       const args = input.args.join(" ");
       if (args === "rev-parse --git-path index") {
         return Effect.succeed({ code: 0, stdout: `${workingIndexPath}\n`, stderr: "" });
-      }
-      if (args === "update-index --really-refresh") {
-        const captureIndexPath = input.env?.GIT_INDEX_FILE ?? "";
-        const refreshTime = new Date("2025-01-02T03:04:05.000Z");
-        utimesSync(captureIndexPath, refreshTime, refreshTime);
-        return Effect.succeed({ code: 1, stdout: "", stderr: "README.md: needs update\n" });
       }
       if (args === "add -A -- .") {
         const captureIndexPath = input.env?.GIT_INDEX_FILE ?? "";
@@ -154,7 +148,7 @@ describe("CheckpointStoreLive", () => {
         execute.mock.calls.some(
           ([call]) => call.args.join(" ") === "update-index --really-refresh",
         ),
-      ).toBe(true);
+      ).toBe(false);
       expect(
         execute.mock.calls.some(([call]) => call.args.join(" ") === "rev-parse --verify HEAD"),
       ).toBe(false);

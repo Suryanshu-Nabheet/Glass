@@ -880,7 +880,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     }
 
     case "thread.create": {
-      const project = yield* requireProject({
+      yield* requireProject({
         readModel,
         command,
         projectId: command.projectId,
@@ -938,7 +938,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     }
 
     case "thread.handoff.create": {
-      const project = yield* requireProject({
+      yield* requireProject({
         readModel,
         command,
         projectId: command.projectId,
@@ -1039,7 +1039,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     }
 
     case "thread.fork.create": {
-      const project = yield* requireProject({
+      yield* requireProject({
         readModel,
         command,
         projectId: command.projectId,
@@ -1229,7 +1229,6 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         threadId: command.threadId,
       });
-      const project = readModel.projects.find((candidate) => candidate.id === thread.projectId);
       // Provider-native threads: see thread.create — the selection mirrors the
       // provider's own subagent, so the Auto-mode capability check doesn't apply.
       if (command.modelSelection !== undefined && thread.creationSource !== "provider_native") {

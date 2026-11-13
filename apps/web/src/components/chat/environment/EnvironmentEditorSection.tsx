@@ -27,14 +27,7 @@ export function EnvironmentEditorSection({
   /** Open the in-app editor workspace view; omitted on surfaces that can't host it. */
   onOpenEditorView?: () => void;
 }) {
-  const {
-    options,
-    preferredEditor,
-    primaryOption,
-    openFavoriteShortcutLabel,
-    setDefaultEditor,
-    openInEditor,
-  } = useEditorLaunchers({
+  const { options, preferredEditor, primaryOption, openInEditor } = useEditorLaunchers({
     keybindings,
     availableEditors,
     openInTarget,

@@ -4,7 +4,6 @@ import {
   type AssociatedWorktreeMetadata,
 } from "@glass/shared/threadWorkspace";
 import { Schema } from "effect";
-import type { ThreadWorkspacePatch } from "../types";
 
 export const EnvMode = Schema.Literals(["local", "worktree"]);
 export type EnvMode = typeof EnvMode.Type;

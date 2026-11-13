@@ -11,28 +11,12 @@ import {
   resolveEditorLaunch,
   resolveWindowsEditorUriLaunch,
 } from "./open";
-import {
-  clearWindowsStorePackageDiscoveryCache,
-  getEditorWindowsStorePackages,
-  resolveWindowsStorePackageDirectory,
-  resolveWindowsStorePackageDirectoryFromPowerShell,
-  resolveWindowsStorePackageInstallLocation,
-} from "./editorAppDiscovery";
-
 function encodeExpectedWindowsEditorUriPath(targetPath: string): string {
   return targetPath
     .replaceAll("\\", "/")
     .split("/")
     .map((segment) => encodeURIComponent(segment).replaceAll("%3A", ":"))
     .join("/");
-}
-
-function shellSingleQuote(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function fakePowerShellAppxScript(installLocation: string): string {
-  return `#!/bin/sh\nprintf '%s\\n' ${shellSingleQuote(installLocation)}\n`;
 }
 
 it.layer(NodeServices.layer)("resolveEditorLaunch", (it) => {

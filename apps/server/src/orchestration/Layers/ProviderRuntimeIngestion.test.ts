@@ -39,7 +39,6 @@ import { OrchestrationEngineLive } from "./OrchestrationEngine.ts";
 import { OrchestrationProjectionPipelineLive } from "./ProjectionPipeline.ts";
 import { OrchestrationProjectionSnapshotQueryLive } from "./ProjectionSnapshotQuery.ts";
 import {
-  collectPersistedGeneratedImagePaths,
   nextRuntimeJournalSafetyPollDelayMs,
   ProviderRuntimeIngestionLive,
   selectProviderRuntimeJournalStream,

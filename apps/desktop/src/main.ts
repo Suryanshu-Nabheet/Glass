@@ -81,11 +81,7 @@ import {
 } from "./bundleSwapDetection";
 import { waitForBackendStartupReady } from "./backendStartupReadiness";
 import { showDesktopConfirmDialog } from "./confirmDialog";
-import {
-  desktopAppIconResourceName,
-  isDesktopAppIcon,
-  shouldUpdateDesktopAppIcon,
-} from "./desktopAppIcon";
+import { desktopAppIconResourceName, isDesktopAppIcon } from "./desktopAppIcon";
 import { refreshWindowsTaskbarIcon } from "./windowsTaskbarIcon";
 import {
   makeUpdateInstallPreparationCoordinator,
@@ -1907,15 +1903,6 @@ function configureAppIdentity(): void {
   if (process.platform === "win32") {
     app.setAppUserModelId(APP_USER_MODEL_ID);
   }
-}
-
-// The packaged bundle icon is a solid, pre-rounded ICNS so Tahoe does not reinterpret
-// the mark as Icon Composer glass. Older macOS gets the same literal rounded artwork as
-// a runtime dock override because it does not apply the modern system mask itself.
-function usesLegacyMacDockIcon(): boolean {
-  if (process.platform !== "darwin") return false;
-  const darwinMajor = Number.parseInt(OS.release().split(".")[0] ?? "", 10);
-  return Number.isFinite(darwinMajor) && darwinMajor < 25;
 }
 
 function readDesktopAppIcon(): DesktopAppIcon {

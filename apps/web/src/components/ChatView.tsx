@@ -465,7 +465,6 @@ import { useRepoDiffTotals } from "~/hooks/useRepoDiffTotals";
 import { useIsMobile } from "~/hooks/useMediaQuery";
 import { useCopyThreadIdToClipboard } from "~/hooks/useCopyToClipboard";
 import {
-  acknowledgedRiskIdsForFormWarnings,
   AutomationDialog,
   automationQueryKey,
   createInputFromForm,

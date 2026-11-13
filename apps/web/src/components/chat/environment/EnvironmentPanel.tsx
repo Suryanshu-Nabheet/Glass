@@ -33,7 +33,6 @@ import ChatMarkdown from "~/components/ChatMarkdown";
 import GitActionsControl from "~/components/GitActionsControl";
 import { DiffStat } from "~/components/ui/diff-stat";
 import { IconButton } from "~/components/ui/icon-button";
-import { toastManager } from "~/components/ui/toast";
 import type { RepoDiffTotals } from "~/hooks/useRepoDiffTotals";
 import { ArrowUpRightIcon, ChangesIcon, GitHubIcon, SettingsIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";

@@ -88,7 +88,6 @@ function LiveActivityTimeline() {
       density="compact"
       onImageExpand={() => {}}
       markdownCwd={undefined}
-      timestampFormat="24-hour"
     />
   );
 }
@@ -251,7 +250,6 @@ describe("MessagesTimeline tool details", () => {
         density="compact"
         onImageExpand={() => {}}
         markdownCwd={undefined}
-        timestampFormat="locale"
       />,
       { container: host },
     );
@@ -295,7 +293,6 @@ describe("MessagesTimeline tool details", () => {
         onImageExpand={() => {}}
         markdownCwd={undefined}
         onOpenAgentActivity={onOpenAgentActivity}
-        timestampFormat="locale"
       />,
       { container: host },
     );
@@ -340,7 +337,6 @@ describe("MessagesTimeline tool details", () => {
         markdownCwd={undefined}
         turnId={turnId}
         onOpenTurnDiff={onOpenTurnDiff}
-        timestampFormat="locale"
       />,
       { container: host },
     );
@@ -382,7 +378,6 @@ describe("MessagesTimeline tool details", () => {
           density="compact"
           onImageExpand={() => {}}
           markdownCwd={undefined}
-          timestampFormat="locale"
         />
       </WorkspaceFileOpenerContext.Provider>,
       { container: host },

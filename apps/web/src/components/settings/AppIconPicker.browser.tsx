@@ -9,15 +9,6 @@ import { render } from "vitest-browser-react";
 
 import { AppIconPicker } from "./AppIconPicker";
 
-function readTopLeftAlpha(image: HTMLImageElement): number {
-  const canvas = document.createElement("canvas");
-  canvas.width = image.naturalWidth;
-  canvas.height = image.naturalHeight;
-  const context = canvas.getContext("2d");
-  context?.drawImage(image, 0, 0);
-  return context?.getImageData(0, 0, 1, 1).data[3] ?? -1;
-}
-
 it("offers and selects black and white icons", async () => {
   const onValueChange = vi.fn();
   const mounted = await render(
