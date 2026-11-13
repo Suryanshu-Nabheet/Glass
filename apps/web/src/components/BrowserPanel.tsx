@@ -248,6 +248,15 @@ function ignoreBrowserWebviewDetachError(): void {
   // Renderer webview detach is best-effort cleanup; a stale/destroyed guest is already gone.
 }
 
+function browserScreenshotDataUrl(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return `data:image/png;base64,${btoa(binary)}`;
+}
+
 function setBrowserWebviewOverlayOcclusion(
   webview: BrowserWebviewElement | null,
   occluded: boolean,
@@ -575,6 +584,7 @@ export function BrowserPanel({
   const addressInputRef = useRef<HTMLInputElement>(null);
   const browserTabsBarRef = useRef<HTMLDivElement>(null);
   const browserViewportRef = useRef<HTMLDivElement>(null);
+  const browserActionsPreviewRequestRef = useRef(0);
   const browserWebviewRef = useRef<BrowserWebviewElement | null>(null);
   const browserWebviewTabIdRef = useRef<string | null>(null);
   const browserWebviewWebContentsIdRef = useRef<number | null>(null);
@@ -616,6 +626,7 @@ export function BrowserPanel({
   const [localError, setLocalError] = useState<string | null>(null);
   const [browserRendererGeneration, setBrowserRendererGeneration] = useState(0);
   const [browserActionsMenuOpen, setBrowserActionsMenuOpen] = useState(false);
+  const [browserActionsPagePreview, setBrowserActionsPagePreview] = useState<string | null>(null);
   const runtimeReady = isLiveRuntime ? workspaceReady : true;
   const activeTab =
     threadBrowserState?.tabs.find((tab) => tab.id === threadBrowserState.activeTabId) ??
@@ -1392,6 +1403,35 @@ export function BrowserPanel({
     threadId,
   ]);
 
+  const onBrowserActionsMenuOpenChange = useCallback(
+    async (open: boolean) => {
+      const requestId = ++browserActionsPreviewRequestRef.current;
+      if (!open) {
+        setBrowserActionsMenuOpen(false);
+        setBrowserActionsPagePreview(null);
+        return;
+      }
+
+      setBrowserActionsPagePreview(null);
+      if (!api || !activeTab || !isLiveRuntime) {
+        setBrowserActionsMenuOpen(true);
+        return;
+      }
+
+      try {
+        const screenshot = await api.browser.captureScreenshot({ threadId, tabId: activeTab.id });
+        if (browserActionsPreviewRequestRef.current !== requestId) return;
+        setBrowserActionsPagePreview(browserScreenshotDataUrl(screenshot.bytes));
+      } catch {
+        // The actions menu remains usable if the page cannot be snapshotted.
+      }
+      if (browserActionsPreviewRequestRef.current === requestId) {
+        setBrowserActionsMenuOpen(true);
+      }
+    },
+    [activeTab, api, isLiveRuntime, threadId],
+  );
+
   const onCopyScreenshotToClipboard = useCallback(() => {
     if (!ensureLiveRuntime()) {
       return;
@@ -1716,7 +1756,11 @@ export function BrowserPanel({
           <LinkIcon className="size-3.5" />
           <span className="sr-only">Copy link</span>
         </Button>
-        <Menu modal={false} open={browserActionsMenuOpen} onOpenChange={setBrowserActionsMenuOpen}>
+        <Menu
+          modal={false}
+          open={browserActionsMenuOpen}
+          onOpenChange={onBrowserActionsMenuOpenChange}
+        >
           <MenuTrigger
             render={
               <Button
@@ -1885,7 +1929,16 @@ export function BrowserPanel({
             </div>
           ) : null}
           {isLiveRuntime ? (
-            <div ref={browserViewportRef} className="absolute inset-0 bg-[#0d0d0d]" />
+            <div ref={browserViewportRef} className="absolute inset-0 bg-[#0d0d0d]">
+              {browserActionsMenuOpen && browserActionsPagePreview ? (
+                <img
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 size-full object-fill"
+                  src={browserActionsPagePreview}
+                />
+              ) : null}
+            </div>
           ) : null}
           {showLocalServersHome ? (
             <BrowserLocalServersHome
